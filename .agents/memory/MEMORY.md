@@ -1,0 +1,1 @@
+- [Forma de trabajo de Co-Piloto de Duelo](care-co-pilot-workflow.md) — limitar cambios a los dos repositorios y avanzar con pruebas y commits funcionales en español.
