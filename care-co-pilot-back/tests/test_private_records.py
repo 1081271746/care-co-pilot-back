@@ -13,7 +13,9 @@ from app.core.config import Settings
 from app.core.security import create_access_token
 from app.database.connection import get_db
 from app.main import create_app
-from app.models import Base, PrivateRecord, User
+from app.models.base import Base
+from app.models.private_record import PrivateRecord
+from app.models.user import User
 
 TEST_SECRET = "solo-para-pruebas-" + ("x" * 32)
 TEST_SETTINGS = Settings(jwt_secret_key=SecretStr(TEST_SECRET))

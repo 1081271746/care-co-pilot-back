@@ -7,7 +7,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database.connection import get_db
-from app.models import PrivateRecord, User
+from app.models.private_record import PrivateRecord
+from app.models.user import User
 from app.routers.auth import get_current_user
 from app.schemas.auth import AuthenticatedUser
 from app.schemas.private_record import (
