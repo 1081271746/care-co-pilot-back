@@ -1,6 +1,8 @@
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 
 from app.core.config import load_settings
+from app.core.errors import safe_validation_error
 from app.routers.auth import router as auth_router
 from app.routers.health import router as health_router
 from app.routers.private_records import router as private_records_router
@@ -16,6 +18,7 @@ def create_app() -> FastAPI:
             "ni servicios de emergencia."
         ),
     )
+    application.add_exception_handler(RequestValidationError, safe_validation_error)
     application.include_router(auth_router)
     application.include_router(private_records_router)
     application.include_router(health_router)

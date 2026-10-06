@@ -17,10 +17,32 @@ from app.core.security import (
 from app.database import get_db
 from app.models import User
 from app.schemas.auth import AuthenticatedUser, LoginRequest, LoginResponse
+from app.schemas.account import AccountResponse, RegisterRequest
+from app.services.accounts import DuplicateEmailError, register_account
 
 router = APIRouter(prefix="/auth", tags=["Autenticación"])
 bearer_scheme = HTTPBearer(auto_error=False)
 INVALID_CREDENTIALS_DETAIL = "Correo o contraseña incorrectos."
+
+
+@router.post(
+    "/register", response_model=AccountResponse, status_code=status.HTTP_201_CREATED,
+)
+def register(
+    payload: RegisterRequest,
+    db: Annotated[Session, Depends(get_db)],
+) -> AccountResponse:
+    """Crea una cuenta; para obtener JWT se debe iniciar sesión."""
+    try:
+        user = register_account(db, payload)
+    except DuplicateEmailError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="No se pudo crear la cuenta con ese correo.",
+        ) from None
+    return AccountResponse(
+        id=str(user.id), email=user.email, created_at=user.created_at,
+    )
 
 
 @router.post("/login", response_model=LoginResponse)

@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, SecretStr, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, SecretStr, field_validator
 
 
 class AuthenticatedUser(BaseModel):
@@ -12,10 +12,12 @@ class AuthenticatedUser(BaseModel):
 class LoginRequest(BaseModel):
     """Credenciales enviadas al inicio de sesión."""
 
-    email: str = Field(min_length=1, max_length=320)
+    model_config = ConfigDict(extra="forbid")
+
+    email: EmailStr = Field(max_length=320)
     password: SecretStr = Field(min_length=1, max_length=1024)
 
-    @field_validator("email")
+    @field_validator("email", mode="before")
     @classmethod
     def normalize_email(cls, value: str) -> str:
         normalized = value.strip().casefold()
