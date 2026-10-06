@@ -9,18 +9,27 @@ atención profesional o servicios de emergencia.
 - Configuración mediante `APP_NAME`, `APP_ENV` y `DATABASE_URL`.
 - Motor SQLAlchemy y sesiones PostgreSQL creados bajo demanda.
 - Comprobación manual de la base mediante `SELECT 1`, sin crear tablas.
+- Validación de tokens de acceso JWT firmados con HS256 y una clave del entorno.
+- `GET /auth/me`: devuelve la identidad solo cuando el bearer token es válido.
+- Comprobación reutilizable de propiedad de registros que responde 404 para
+  registros ajenos.
 - `GET /health`: respuesta `{"status":"ok"}` para comprobar que la API responde.
 - Documentación automática en `/docs` y contrato OpenAPI en `/openapi.json`.
 - Pruebas de configuración, conexión y HTTP con `unittest`.
 
-Esta etapa no crea tablas ni incorpora autenticación JWT o IA. El endpoint
-`/health` confirma únicamente que la API responde; no comprueba PostgreSQL.
+Esta etapa aún no crea tablas ni endpoints de datos personales. Por eso no
+ofrece un endpoint de inicio de sesión: emitir tokens sin comprobar credenciales
+contra cuentas persistidas permitiría suplantar usuarios. El código que autentique
+una cuenta debe llamar a `create_access_token` solo después de verificarla.
+Las rutas de datos deben exigir `get_current_user` y comprobar la propiedad antes
+de devolver, modificar o eliminar registros. El endpoint `/health` confirma
+únicamente que la API responde; no comprueba PostgreSQL.
 
 ## Estructura
 
 ```text
 app/
-├── core/        # Configuración; seguridad en etapas posteriores
+├── core/        # Configuración, seguridad JWT y autorización por propietario
 ├── database/    # Motor, sesiones y comprobación de PostgreSQL
 ├── models/      # Modelos SQLAlchemy futuros
 ├── routers/     # Endpoints
@@ -57,6 +66,12 @@ Copy-Item .env.example .env
 opcional para iniciar la API; configúrala para usar PostgreSQL. Las variables
 del entorno tienen prioridad sobre `.env`; un valor inválido impide iniciar la
 API.
+
+Configura `JWT_SECRET_KEY` en el gestor seguro de variables del entorno (o en
+`.env` local, que no debe subirse al repositorio). Debe contener al menos 32
+bytes aleatorios; puede generarse con `python -c "import secrets; print(secrets.token_urlsafe(48))"`.
+El archivo `.env.example` deja esta variable vacía. La autenticación rechaza
+tokens si el secreto no está configurado o es demasiado corto.
 
 La URL suele tener el formato
 `postgresql+psycopg://USUARIO:CONTRASEÑA@HOST:5432/BASE`. Replit puede

@@ -60,6 +60,23 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(settings.database_url.get_secret_value(), database_url)
         self.assertNotIn("password", repr(settings))
 
+    def test_reads_jwt_secret_as_a_secret(self):
+        with patch.dict(
+            os.environ,
+            {"JWT_SECRET_KEY": "x" * 40},
+            clear=True,
+        ):
+            settings = load_settings()
+
+        self.assertEqual(settings.jwt_secret_key.get_secret_value(), "x" * 40)
+        self.assertNotIn("x" * 40, repr(settings))
+
+    def test_empty_jwt_secret_is_not_configured(self):
+        with patch.dict(os.environ, {"JWT_SECRET_KEY": ""}, clear=True):
+            settings = load_settings()
+
+        self.assertIsNone(settings.jwt_secret_key)
+
     def test_empty_database_url_is_not_configured(self):
         with patch.dict(os.environ, {"DATABASE_URL": ""}, clear=True):
             settings = load_settings()

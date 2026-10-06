@@ -14,6 +14,7 @@ class Settings(BaseModel):
     app_name: str = Field(default="Co-Piloto de Duelo", min_length=1)
     app_env: Literal["development", "test", "production"] = "development"
     database_url: SecretStr | None = Field(default=None, repr=False)
+    jwt_secret_key: SecretStr | None = Field(default=None, repr=False)
 
 
 def load_settings() -> Settings:
@@ -23,4 +24,5 @@ def load_settings() -> Settings:
         app_name=os.getenv("APP_NAME", "Co-Piloto de Duelo"),
         app_env=os.getenv("APP_ENV", "development"),
         database_url=os.getenv("DATABASE_URL") or None,
+        jwt_secret_key=os.getenv("JWT_SECRET_KEY") or None,
     )

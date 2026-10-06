@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from app.core.config import load_settings
+from app.routers.auth import router as auth_router
 from app.routers.health import router as health_router
 
 
@@ -14,6 +15,7 @@ def create_app() -> FastAPI:
             "ni servicios de emergencia."
         ),
     )
+    application.include_router(auth_router)
     application.include_router(health_router)
     return application
 

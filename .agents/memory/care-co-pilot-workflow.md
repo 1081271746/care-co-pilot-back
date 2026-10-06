@@ -12,3 +12,9 @@ Nunca pedir credenciales reales de PostgreSQL ni escribirlas en el código o rep
 **Why:** el usuario pidió explícitamente mantener esta metodología durante todo el desarrollo de su proyecto universitario.
 
 **How to apply:** antes de cada fase, revisar los dos repositorios objetivo, proponer el cambio acotado, implementarlo y verificarlo antes del siguiente cambio; no ampliar el alcance a otros artefactos o repositorios.
+
+No emitir JWT para un identificador de usuario proporcionado sin autenticar. La emisión debe ocurrir solo después de comprobar las credenciales contra una cuenta persistida; si aún no existe el almacenamiento de usuarios, dejar la validación y las dependencias de autorización listas sin crear un endpoint que permita suplantar identidades.
+
+**Why:** firmar tokens para identidades no verificadas permitiría acceder a datos de otras personas.
+
+**How to apply:** esperar a tener cuentas persistidas para habilitar el inicio de sesión y la emisión de JWT.

@@ -9,9 +9,15 @@ import sys
 import time
 import unittest
 from urllib.error import HTTPError, URLError
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
+
+from pydantic import SecretStr
+
+from app.core.config import Settings
+from app.core.security import create_access_token
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
+TEST_JWT_SECRET = "solo-para-pruebas-" + ("x" * 32)
 
 
 class HealthHttpTests(unittest.TestCase):
@@ -24,7 +30,11 @@ class HealthHttpTests(unittest.TestCase):
 
         cls.base_url = f"http://127.0.0.1:{port}"
         environment = os.environ.copy()
-        environment.update(APP_ENV="test", APP_NAME="API de prueba")
+        environment.update(
+            APP_ENV="test",
+            APP_NAME="API de prueba",
+            JWT_SECRET_KEY=TEST_JWT_SECRET,
+        )
         cls.server = subprocess.Popen(
             [
                 sys.executable, "-m", "uvicorn", "app.main:app",
@@ -83,6 +93,30 @@ class HealthHttpTests(unittest.TestCase):
             urlopen(f"{self.base_url}/ruta-inexistente", timeout=2)
         self.assertEqual(caught.exception.code, 404)
         caught.exception.close()
+
+    def test_auth_me_returns_identity_for_a_valid_token(self):
+        token = create_access_token(
+            "user-123",
+            settings=Settings(jwt_secret_key=SecretStr(TEST_JWT_SECRET)),
+        )
+        request = Request(
+            f"{self.base_url}/auth/me",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        with urlopen(request, timeout=2) as response:
+            self.assertEqual(response.status, 200)
+            self.assertEqual(json.load(response), {"id": "user-123"})
+
+    def test_auth_me_rejects_missing_and_invalid_tokens(self):
+        for headers in ({}, {"Authorization": "Bearer token-manipulado"}):
+            with self.subTest(headers=headers):
+                request = Request(f"{self.base_url}/auth/me", headers=headers)
+                with self.assertRaises(HTTPError) as caught:
+                    urlopen(request, timeout=2)
+                self.assertEqual(caught.exception.code, 401)
+                self.assertEqual(caught.exception.headers["www-authenticate"], "Bearer")
+                caught.exception.close()
 
 
 if __name__ == "__main__":
