@@ -1,6 +1,7 @@
 """Pruebas HTTP del aislamiento por propietario en registros privados."""
 
 import unittest
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -89,10 +90,51 @@ class PrivateRecordHttpTests(unittest.TestCase):
             ("PATCH", "/records/1", {"content": "Cambio"}),
             ("DELETE", "/records/1", None),
         ]
+        with patch("app.core.security.datetime") as clock:
+            clock.now.return_value = datetime.now(timezone.utc) - timedelta(hours=1)
+            expired_token = create_access_token(
+                "1",
+                expires_delta=timedelta(seconds=1),
+                settings=TEST_SETTINGS,
+            )
+        with patch("app.core.security.load_settings", return_value=TEST_SETTINGS):
+            for method, path, body in requests:
+                with self.subTest(method=method, path=path, token="expired"):
+                    response = self.client.request(
+                        method,
+                        path,
+                        json=body,
+                        headers={"Authorization": f"Bearer {expired_token}"},
+                    )
+                    self.assertEqual(response.status_code, 401)
         for method, path, body in requests:
             with self.subTest(method=method, path=path):
                 response = self.request_as(None, method, path, json=body)
                 self.assertEqual(response.status_code, 401)
+                invalid = self.request_as(
+                    None,
+                    method,
+                    path,
+                    json=body,
+                    headers={"Authorization": "Bearer token-invalido"},
+                )
+                self.assertEqual(invalid.status_code, 401)
+
+    def test_every_route_rejects_tokens_without_a_persisted_owner(self):
+        operations = [
+            ("GET", "/records", None),
+            ("POST", "/records", {"title": "Nota", "content": "Texto"}),
+            ("GET", "/records/1", None),
+            ("PATCH", "/records/1", {"content": "Cambio"}),
+            ("DELETE", "/records/1", None),
+        ]
+        for user_id in ("999", "cuenta-invalida", "0", "-1"):
+            for method, path, body in operations:
+                with self.subTest(user_id=user_id, method=method):
+                    response = self.request_as(user_id, method, path, json=body)
+                    self.assertEqual(response.status_code, 401)
+        with self.session_factory() as session:
+            self.assertEqual(session.query(PrivateRecord).count(), 0)
 
     def test_create_assigns_owner_from_jwt_and_list_filters_by_owner(self):
         created = self.create_record()
@@ -119,6 +161,19 @@ class PrivateRecordHttpTests(unittest.TestCase):
             },
         )
         self.assertEqual(response.status_code, 422)
+
+    def test_update_cannot_transfer_ownership_or_clear_required_fields(self):
+        record_id = self.create_record().json()["id"]
+        for payload in ({"owner_id": 2}, {"content": None}, {"title": None}, {}):
+            with self.subTest(payload=payload):
+                response = self.request_as(
+                    "1", "PATCH", f"/records/{record_id}", json=payload,
+                )
+                self.assertEqual(response.status_code, 422)
+        with self.session_factory() as session:
+            record = session.get(PrivateRecord, record_id)
+            self.assertEqual(record.owner_id, 1)
+            self.assertEqual(record.content, "Contenido confidencial")
 
     def test_owner_can_read_update_and_delete_their_record(self):
         created = self.create_record()
