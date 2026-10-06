@@ -1,1 +1,2 @@
 - [Forma de trabajo de Co-Piloto de Duelo](care-co-pilot-workflow.md) — limitar cambios a los dos repositorios y avanzar con pruebas y commits funcionales en español.
+- [Alcance Git de los clones](nested-repository-git.md) — verificar la raíz antes de commits; sin metadata anidada, Git puede operar sobre el repositorio contenedor.
