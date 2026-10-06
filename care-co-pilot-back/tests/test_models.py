@@ -17,7 +17,7 @@ class UserModelTests(unittest.TestCase):
         self.assertEqual(User.__tablename__, "users")
         self.assertEqual(
             set(mapper.columns.keys()),
-            {"id", "email", "password_hash", "created_at"},
+            {"id", "email", "password_hash", "created_at", "is_active"},
         )
         self.assertIsInstance(User.__table__.c.id.type, Integer)
         self.assertIsInstance(User.__table__.c.email.type, String)

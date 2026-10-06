@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pydantic import Field
+from pydantic import BaseModel, Field, SecretStr
 
 from app.schemas.auth import LoginRequest
 
@@ -10,12 +10,12 @@ from app.schemas.auth import LoginRequest
 class RegisterRequest(LoginRequest):
     """Acepta frases de contraseña sin imponer símbolos arbitrarios."""
 
-    password: LoginRequest.model_fields["password"].annotation = Field(
+    password: SecretStr = Field(
         min_length=12, max_length=1024,
     )
 
 
-class AccountResponse(LoginRequest.__bases__[0]):
+class AccountResponse(BaseModel):
     id: str
     email: str
     created_at: datetime

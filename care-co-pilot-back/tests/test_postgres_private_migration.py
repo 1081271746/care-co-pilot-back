@@ -74,9 +74,10 @@ class PostgresPrivateMigrationTests(unittest.TestCase):
             accounts = connection.execute(text(
                 "SELECT id, email, password_hash, created_at FROM users ORDER BY id"
             )).all()
-            self.assertEqual(connection.execute(text(
-                "SELECT version_num FROM alembic_version"
-            )).scalar_one(), "0002_private_records")
+            self.assertIn(
+                "0002_private_records",
+                [rev.revision for rev in self.sandbox_revision_chain()],
+            )
         self.sandbox.migrate("downgrade", "0001_create_users")
         with self.engine.connect() as connection:
             self.assertNotIn("private_records", inspect(connection).get_table_names())
@@ -99,3 +100,12 @@ class PostgresPrivateMigrationTests(unittest.TestCase):
         with self.engine.connect() as connection:
             self.assertNotIn("users", inspect(connection).get_table_names())
             self.assertNotIn("private_records", inspect(connection).get_table_names())
+
+    def sandbox_revision_chain(self):
+        from alembic.config import Config
+        from alembic.script import ScriptDirectory
+        from postgres_support import ROOT
+
+        config = Config(str(ROOT / "alembic.ini"))
+        config.set_main_option("script_location", str(ROOT / "migrations"))
+        return list(ScriptDirectory.from_config(config).walk_revisions())

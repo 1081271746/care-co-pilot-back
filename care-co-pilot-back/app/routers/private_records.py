@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.database.connection import get_db
 from app.models.private_record import PrivateRecord
 from app.models.user import User
-from app.routers.auth import get_current_user
+from app.routers.auth import get_active_user as get_current_user
 from app.schemas.auth import AuthenticatedUser
 from app.schemas.private_record import (
     DEFAULT_RECORD_LIMIT,

@@ -1,10 +1,13 @@
 """Rutas de identidad que requieren un token JWT válido."""
 
 from typing import Annotated
+from datetime import datetime, timezone
+import hashlib
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.security import (
@@ -12,10 +15,13 @@ from app.core.security import (
     InvalidAccessTokenError,
     create_access_token,
     decode_access_token,
+    decode_access_claims,
+    hash_password,
     verify_password,
 )
 from app.database import get_db
 from app.models import User
+from app.models.revoked_token import RevokedToken
 from app.schemas.auth import AuthenticatedUser, LoginRequest, LoginResponse
 from app.schemas.account import AccountResponse, RegisterRequest
 from app.services.accounts import DuplicateEmailError, register_account
@@ -59,12 +65,16 @@ def login(
         password,
         user.password_hash if user is not None else None,
     )
-    if user is None or not password_matches:
+    if user is None or not password_matches or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=INVALID_CREDENTIALS_DETAIL,
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    if not user.password_hash.startswith("$argon2"):
+        user.password_hash = hash_password(password)
+        db.commit()
 
     try:
         access_token = create_access_token(str(user.id))
@@ -108,9 +118,56 @@ def get_current_user(
     return AuthenticatedUser(id=user_id)
 
 
-@router.get("/me", response_model=AuthenticatedUser)
-def read_current_user(
+def get_active_user(
     current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(bearer_scheme)],
+    db: Annotated[Session, Depends(get_db)],
 ) -> AuthenticatedUser:
-    """Devuelve la identidad asociada al token sin exponer datos personales."""
+    """Exige una cuenta vigente y una sesión que no se haya cerrado."""
+    try:
+        user_id = int(current_user.id)
+    except (ValueError, TypeError):
+        user_id = 0
+    user = db.get(User, user_id) if user_id > 0 else None
+    digest = hashlib.sha256(credentials.credentials.encode()).hexdigest()
+    if (
+        user is None or not user.is_active or str(user.id) != current_user.id
+        or db.get(RevokedToken, digest) is not None
+    ):
+        raise HTTPException(
+            status_code=401, detail="Se requiere un token de acceso válido.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     return current_user
+
+
+@router.get("/me", response_model=AccountResponse)
+def read_current_user(
+    current_user: Annotated[AuthenticatedUser, Depends(get_active_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> AccountResponse:
+    """Devuelve solo los datos públicos de la cuenta persistida actual."""
+    user = db.get(User, int(current_user.id))
+    return AccountResponse(id=str(user.id), email=user.email, created_at=user.created_at)
+
+
+@router.post("/logout", status_code=204)
+def logout(
+    current_user: Annotated[AuthenticatedUser, Depends(get_active_user)],
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(bearer_scheme)],
+    db: Annotated[Session, Depends(get_db)],
+) -> Response:
+    """Revoca el JWT actual; otras sesiones del usuario siguen funcionando."""
+    claims = decode_access_claims(credentials.credentials)
+    digest = hashlib.sha256(credentials.credentials.encode()).hexdigest()
+    db.execute(delete(RevokedToken).where(RevokedToken.expires_at <= datetime.now(timezone.utc)))
+    db.add(RevokedToken(
+        token_hash=digest, expires_at=datetime.fromtimestamp(claims["exp"], timezone.utc),
+    ))
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        if db.get(RevokedToken, digest) is None:
+            raise
+    return Response(status_code=204)

@@ -1,33 +1,104 @@
 # Co-Piloto de Duelo — Backend
 
-Base del proyecto universitario con Python, FastAPI, Pydantic y PostgreSQL.
+Backend del proyecto universitario con Python, FastAPI, SQLAlchemy, Pydantic y PostgreSQL.
 La aplicación es de acompañamiento: no realiza diagnósticos ni sustituye
 atención profesional o servicios de emergencia.
 
 ## Alcance actual
 
-- Configuración mediante `APP_NAME`, `APP_ENV` y `DATABASE_URL`.
+- Configuración mediante `APP_NAME`, `APP_ENV`, `DATABASE_URL`, `JWT_SECRET_KEY` y `CORS_ORIGINS`.
 - Motor SQLAlchemy y sesiones PostgreSQL creados bajo demanda.
 - Comprobación manual de la base mediante `SELECT 1`, sin crear tablas.
-- Modelo mínimo de cuenta: correo único, hash de contraseña y fecha de creación.
+- Cuenta persistida: correo único, hash Argon2, estado activo y fecha de creación.
 - Migraciones Alembic explícitas; la API no crea ni modifica tablas al iniciar.
-- `POST /auth/login`: verifica las credenciales contra una cuenta persistida y
-  devuelve un JWT únicamente cuando ambas son válidas.
+- Registro y login con validación de correo, hashing y emisión de JWT solo tras autenticar.
 - Validación de tokens de acceso JWT firmados con HS256 y una clave del entorno.
-- `GET /auth/me`: devuelve la identidad solo cuando el bearer token es válido.
+- Usuario actual y logout con revocación persistente del token cerrado.
 - Comprobación reutilizable de propiedad de registros que responde 404 para
   registros ajenos.
 - `GET /health`: respuesta `{"status":"ok"}` para comprobar que la API responde.
 - Documentación automática en `/docs` y contrato OpenAPI en `/openapi.json`.
-- Pruebas de configuración, conexión y HTTP con `unittest`, incluido el login sobre
-  una base SQLite temporal.
+- Diario emocional privado, revisión inicial de seguridad y recomendaciones.
+- Biblioteca persistente de recursos y ejercicios, con carga inicial explícita.
+- Historial privado de ejercicios, preferencias, dashboard y actividad diaria.
+- Pruebas HTTP con `unittest` sobre SQLite temporal y PostgreSQL real desechable.
 
 El inicio de sesión responde con el mismo error genérico si el correo no existe o
-la contraseña no coincide. Las contraseñas se almacenan mediante PBKDF2-HMAC-SHA256
-con una sal aleatoria; nunca se guardan en texto plano. Las rutas de datos deben
-exigir `get_current_user` y comprobar la propiedad antes de devolver, modificar o
-eliminar registros. El endpoint `/health` confirma únicamente que la API responde;
-no comprueba PostgreSQL.
+la contraseña no coincide o la cuenta está desactivada. Las contraseñas nuevas usan
+`pwdlib` con Argon2; las antiguas PBKDF2 siguen siendo válidas y se actualizan al
+iniciar sesión correctamente. Nunca se devuelven contraseñas ni hashes.
+Las rutas privadas exigen `get_active_user` y consultan por registro y propietario
+antes de leer, modificar o eliminar. Un recurso ajeno recibe el mismo 404 que uno
+inexistente. Los errores 422 omiten el dato recibido y los errores de base devuelven
+un 503 genérico; las respuestas incluyen `Cache-Control: no-store`.
+
+## Estado del análisis y límites de seguridad
+
+**No hay un proveedor de IA conectado todavía.** Las entradas se guardan de verdad,
+pero no se inventan estimaciones emocionales: `estimated_stage` y `analysis_result`
+permanecen nulos, con `analysis_status: pending`.
+
+Al guardar o modificar el contenido se ejecutan reglas locales conservadoras para
+expresiones como «quiero morir», «quiero hacerme daño», «no quiero seguir» y «no puedo
+más». Su resultado indica `source: local_safety_rules`: no es IA ni evaluación
+clínica. `unassessed` significa que no se reconocieron las expresiones contempladas,
+**no** que el riesgo sea bajo o que la persona esté a salvo. Las reglas pueden
+omitir señales o generar falsas alarmas, por ejemplo ante citas o negaciones.
+
+Una señal produce `safety_priority` y ayuda humana/profesional antes de cualquier
+ejercicio. `/help` está disponible sin login. Los números de emergencia por país
+están pendientes de definir y verificar; no se asume el país del usuario.
+
+`POST /journal/{id}/analyze` exige propiedad y consentimiento explícito booleano.
+Si hay riesgo devuelve primero la orientación de seguridad, sin enviar contenido
+a terceros. Sin riesgo y sin consentimiento devuelve 422; con consentimiento pero
+sin proveedor devuelve 503 y conserva la entrada. No se realizan solicitudes
+externas de análisis en esta versión.
+
+Las etapas orientativas no representan diagnósticos ni un proceso obligatorio
+o lineal. `intense_sadness` no significa una depresión diagnosticada.
+
+## API disponible
+
+Todas las rutas salvo salud, ayuda, registro, login y documentación requieren
+`Authorization: Bearer <token>`.
+
+| Módulo | Rutas |
+| --- | --- |
+| Cuentas | `POST /auth/register`, `POST /auth/login`, `GET /auth/me`, `POST /auth/logout` |
+| Diario | `POST/GET /journal`, `GET/PATCH/DELETE /journal/{id}` |
+| Análisis y acompañamiento | `POST /journal/{id}/analyze`, `GET /journal/{id}/recommendations` |
+| Biblioteca | `GET /resources`, `GET /resources/{id}`, `GET /exercises`, `GET /exercises/{id}` |
+| Ejercicios realizados | `POST /exercises/{id}/completions`, `GET /progress/exercises`, `GET/PATCH/DELETE /progress/exercises/{id}` |
+| Preferencias | `GET/PATCH/DELETE /profile` |
+| Resúmenes | `GET /dashboard`, `GET /history?days=30` |
+| Registros genéricos previos | `POST/GET /records`, `GET/PATCH/DELETE /records/{id}` |
+| Operación y ayuda | `GET /health`, `GET /health/ready`, `GET /help` |
+
+Registro acepta `email` y `password` (entre 12 y 1024 caracteres); después se inicia
+sesión por separado. JWT caduca a los 30 minutos. Logout devuelve 204 y revoca
+solo el token actual: otras sesiones siguen funcionando. El backend almacena
+únicamente su SHA-256 y expiración, nunca el JWT completo; limpia revocaciones
+vencidas al cerrar sesiones. El frontend deberá borrar su token al recibir 204.
+
+Los nombres opcionales, país y objetivo de acompañamiento se guardan con
+`PATCH /profile`. `country_code` acepta dos letras mayúsculas (normaliza minúsculas)
+o null para limpiarlo; todavía no configura números de emergencia. Borrar el
+perfil restablece preferencias, **no** elimina la cuenta ni el diario.
+
+Diario, catálogo e historial de ejercicios usan `limit` (1–100) y `before_id`
+(cursor positivo). Las páginas están ordenadas por id descendente, con
+`items`, `has_more` y `next_cursor`. Para seguir, enviar
+`before_id=<next_cursor>`. Las inserciones nuevas no desplazan las páginas ya
+recorridas. El diario conserva contenido; editarlo reinicia un análisis anterior
+y vuelve a revisar seguridad. Los campos de propietario, riesgo y análisis no
+son editables por el cliente.
+
+`/history` acepta entre 1 y 365 días, devuelve fechas UTC, incluye días sin actividad
+y agrega entradas, ejercicios y señales. Sus conteos no son una escala de salud.
+`/dashboard` resume solo la cuenta actual. Las recomendaciones sin IA son
+generales; las de una entrada con riesgo tienen listas de ejercicios y recursos
+normales vacías, y ayuda de seguridad en `safety_result.resources`.
 
 ## Consultar registros privados por páginas
 
@@ -113,12 +184,35 @@ controlador `postgresql+psycopg` de forma explícita.
 
 ### 4. Iniciar FastAPI
 
+Primero prepara las tablas y carga el catálogo:
+
+```powershell
+python -m alembic upgrade head
+python -m app.services.catalog_seed
+```
+
+La carga es idempotente: agrega material educativo inicial que falta sin duplicar
+ni sobrescribir recursos existentes. Este contenido es orientativo, no una terapia,
+y requiere revisión profesional antes de uso público. La API no modifica esquemas
+ni carga contenido automáticamente al iniciar.
+
 ```powershell
 python -m uvicorn app.main:app --reload
 ```
 
 - Salud: <http://127.0.0.1:8000/health>
 - Swagger: <http://127.0.0.1:8000/docs>
+- Disponibilidad completa: <http://127.0.0.1:8000/health/ready>
+
+`/health` solo comprueba que la API responde. `/health/ready` verifica PostgreSQL,
+tablas/columnas requeridas y configuración JWT; devuelve 503 si falta preparación,
+sin exponer credenciales ni aplicar migraciones.
+
+En desarrollo, CORS permite `http://localhost:4200` y `http://127.0.0.1:4200`.
+Configura otros orígenes exactos mediante `CORS_ORIGINS`, separados por comas.
+No se aceptan comodines, rutas ni credenciales en esos orígenes. En producción,
+si no se define la variable, no se autoriza ningún origen externo. No utiliza
+cookies de sesión: el cliente envía el bearer token.
 
 ## Pruebas
 
@@ -185,7 +279,8 @@ las migraciones versionadas con:
 alembic upgrade head
 ```
 
-Para revertir la migración inicial y eliminar la tabla `users`:
+**Destructivo:** para revertir todas las migraciones y eliminar las tablas y sus
+datos, únicamente en una base donde esa pérdida sea intencional:
 
 ```powershell
 alembic downgrade base

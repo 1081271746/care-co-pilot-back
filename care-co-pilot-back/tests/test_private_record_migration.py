@@ -29,7 +29,8 @@ class PrivateRecordMigrationTests(unittest.TestCase):
         config = Config(str(ROOT / "alembic.ini"))
         config.set_main_option("script_location", str(ROOT / "migrations"))
         scripts = ScriptDirectory.from_config(config)
-        self.assertEqual(scripts.get_heads(), ["0002_private_records"])
+        self.assertEqual(len(scripts.get_heads()), 1)
+        self.assertIn("0002_private_records", [rev.revision for rev in scripts.walk_revisions()])
         self.assertEqual(
             scripts.get_revision("0002_private_records").down_revision,
             "0001_create_users",

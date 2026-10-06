@@ -95,9 +95,9 @@ class HealthHttpTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, 404)
         caught.exception.close()
 
-    def test_auth_me_returns_identity_for_a_valid_token(self):
+    def test_auth_me_fails_safely_without_a_configured_database(self):
         token = create_access_token(
-            "user-123",
+            "1",
             settings=Settings(jwt_secret_key=SecretStr(TEST_JWT_SECRET)),
         )
         request = Request(
@@ -105,9 +105,11 @@ class HealthHttpTests(unittest.TestCase):
             headers={"Authorization": f"Bearer {token}"},
         )
 
-        with urlopen(request, timeout=2) as response:
-            self.assertEqual(response.status, 200)
-            self.assertEqual(json.load(response), {"id": "user-123"})
+        with self.assertRaises(HTTPError) as caught:
+            urlopen(request, timeout=2)
+        self.assertEqual(caught.exception.code, 503)
+        self.assertNotIn("DATABASE_URL", caught.exception.read().decode())
+        caught.exception.close()
 
     def test_auth_me_rejects_missing_and_invalid_tokens(self):
         for headers in ({}, {"Authorization": "Bearer token-manipulado"}):

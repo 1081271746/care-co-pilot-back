@@ -55,7 +55,10 @@ def create_database_engine(settings: Settings | None = None) -> Engine:
     url = _postgresql_url(configured_settings)
 
     try:
-        return create_engine(url, pool_pre_ping=True)
+        return create_engine(
+            url, pool_pre_ping=True, pool_timeout=5, hide_parameters=True,
+            connect_args={"connect_timeout": 5},
+        )
     except (ImportError, SQLAlchemyError):
         raise DatabaseConfigurationError(
             "No fue posible crear el motor PostgreSQL; revisa DATABASE_URL "

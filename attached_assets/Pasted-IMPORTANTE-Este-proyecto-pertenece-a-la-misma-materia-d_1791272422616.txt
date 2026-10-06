@@ -1,0 +1,773 @@
+IMPORTANTE:
+
+Este proyecto pertenece a la misma materia de Programación Orientada a la Web en la que estoy desarrollando otros proyectos.
+
+Quiero que trabajes con una metodología similar a la que estoy utilizando en mis proyectos universitarios:
+
+- backend y frontend separados;
+- arquitectura organizada;
+- desarrollo progresivo;
+- probar antes de continuar;
+- no destruir funcionalidades existentes;
+- mantener el código sencillo de entender;
+- utilizar solamente tecnologías que ya he trabajado;
+- hacer commits frecuentes y claros en español.
+
+Este proyecto después lo voy a continuar conmigo paso a paso, por lo tanto NO quiero que introduzcas tecnologías innecesarias o desconocidas para mí.
+
+==================================================
+PROYECTO
+==================================================
+
+Nombre provisional:
+
+"Co-Piloto de Duelo"
+
+Idea:
+
+Sistema de acompañamiento emocional estructurado después de una pérdida, utilizando IA de manera responsable y con varias etapas de acompañamiento.
+
+CASO REAL:
+
+Las personas que atraviesan un proceso de duelo muchas veces no tienen acompañamiento estructurado fuera de terapia.
+
+La terapia puede ser costosa o tener listas de espera, mientras que muchas aplicaciones existentes solamente ofrecen contenido genérico de mindfulness.
+
+La propuesta es crear una aplicación web que permita llevar un diario emocional, recibir ejercicios y recursos adaptados al proceso emocional detectado por el sistema y recibir orientación responsable cuando se detecten señales de riesgo.
+
+IMPORTANTE:
+
+El sistema NO reemplaza a un psicólogo, psiquiatra, terapeuta ni servicio de emergencia.
+
+No debe realizar diagnósticos médicos.
+
+La IA debe utilizarse como herramienta de acompañamiento y orientación estructurada, no como profesional de salud mental.
+
+==================================================
+TECNOLOGÍAS OBLIGATORIAS
+==================================================
+
+Utiliza únicamente tecnologías con las que ya he trabajado.
+
+BACKEND:
+
+- Python
+- FastAPI
+- SQLAlchemy
+- PostgreSQL
+- Pydantic
+- JWT
+- password hashing
+- python-dotenv
+- Uvicorn
+
+FRONTEND:
+
+- Angular
+- TypeScript
+- HTML
+- CSS
+
+CONTROL DE VERSIONES:
+
+- Git
+- GitHub
+
+No agregues tecnologías como:
+
+- Node backend alternativo
+- NestJS
+- Django
+- Laravel
+- Firebase
+- Supabase
+- MongoDB
+- Redis
+- Docker si no es estrictamente necesario
+- frameworks nuevos de IA
+- arquitecturas innecesariamente complejas
+
+Quiero mantener el stack parecido al que ya estoy utilizando en mis otros proyectos.
+
+==================================================
+ESTRUCTURA DEL PROYECTO
+==================================================
+
+El proyecto debe trabajar con dos repositorios separados:
+
+BACKEND
+
+care-co-pilot-back
+
+FRONTEND
+
+care-co-pilot-front
+
+Yo te proporcionaré los enlaces de GitHub de ambos repositorios.
+
+IMPORTANTE:
+
+Primero debes clonar los repositorios que te voy a proporcionar y analizar su estructura actual.
+
+NO empieces modificando archivos inmediatamente.
+
+Primero revisa:
+
+- estructura de carpetas;
+- archivos existentes;
+- configuración;
+- dependencias;
+- rutas;
+- modelos;
+- servicios;
+- componentes;
+- configuración de Angular;
+- configuración de FastAPI;
+- conexión a PostgreSQL;
+- autenticación existente.
+
+Después de analizar ambos repositorios, explícame qué existe actualmente y qué falta.
+
+==================================================
+METODOLOGÍA DE TRABAJO
+==================================================
+
+Quiero que trabajemos como un proyecto universitario real.
+
+NO quiero que generes todo el sistema de golpe.
+
+Quiero que avances progresivamente.
+
+La metodología debe ser:
+
+1. Analizar.
+2. Planificar.
+3. Modificar una parte.
+4. Ejecutar.
+5. Probar.
+6. Corregir.
+7. Hacer commit.
+8. Continuar.
+
+Cuando hagas un cambio:
+
+- explica brevemente qué cambiaste;
+- ejecuta las pruebas o comandos necesarios;
+- verifica que no se haya roto algo existente;
+- realiza un commit.
+
+==================================================
+REGLA DE COMMITS
+==================================================
+
+ESTO ES OBLIGATORIO.
+
+Por cada cambio funcional importante que realices debes hacer un commit de Git.
+
+Los mensajes de commit deben estar en ESPAÑOL.
+
+Ejemplos:
+
+"Configurar conexión con PostgreSQL"
+
+"Implementar autenticación con JWT"
+
+"Crear modelo de usuario"
+
+"Agregar endpoint para diario emocional"
+
+"Implementar formulario de registro"
+
+"Agregar análisis emocional inicial"
+
+"Crear módulo de recursos"
+
+No utilices mensajes genéricos como:
+
+"update"
+
+"changes"
+
+"fix"
+
+"stuff"
+
+Los commits deben explicar claramente qué se hizo.
+
+NO hagas un único commit gigante con todo el proyecto.
+
+==================================================
+BACKEND
+==================================================
+
+Quiero una estructura organizada similar a la que ya he utilizado en otros proyectos FastAPI.
+
+Por ejemplo:
+
+backend/
+├── app/
+│   ├── core/
+│   ├── database/
+│   ├── models/
+│   ├── schemas/
+│   ├── routers/
+│   ├── services/
+│   └── main.py
+├── tests/
+├── .env
+├── .gitignore
+└── requirements.txt
+
+No pongas toda la lógica en main.py.
+
+Utiliza:
+
+- routers para endpoints;
+- models para SQLAlchemy;
+- schemas para Pydantic;
+- services para lógica de negocio;
+- core para seguridad/configuración;
+- database para conexión.
+
+==================================================
+BASE DE DATOS
+==================================================
+
+Utiliza PostgreSQL.
+
+No quiero una base de datos en memoria.
+
+La aplicación debe almacenar información real.
+
+Las entidades pueden incluir:
+
+USUARIO
+
+- id
+- nombres
+- apellidos
+- email
+- password_hash
+- rol
+- activo
+- fecha de registro
+
+PERFIL EMOCIONAL / USUARIO
+
+Información necesaria para personalizar el acompañamiento, sin almacenar información innecesaria.
+
+DIARIO EMOCIONAL
+
+- id
+- usuario_id
+- contenido
+- fecha_registro
+- estado emocional detectado
+- nivel de riesgo
+- resultado del análisis
+
+RECURSOS
+
+- id
+- título
+- descripción
+- tipo
+- etapa
+- contenido
+- activo
+
+EJERCICIOS
+
+- id
+- título
+- descripción
+- etapa recomendada
+- instrucciones
+- activo
+
+PROGRESO / HISTORIAL
+
+Información que permita observar la evolución del acompañamiento.
+
+IMPORTANTE:
+
+No crees todas las tablas inmediatamente.
+
+Primero analiza la arquitectura y crea las entidades de forma progresiva.
+
+==================================================
+AUTENTICACIÓN
+==================================================
+
+ESTA PARTE ES MUY IMPORTANTE.
+
+Quiero que el sistema tenga autenticación real utilizando JWT, como ya hemos trabajado en otros proyectos.
+
+Debe existir:
+
+- registro;
+- login;
+- password hashing;
+- JWT;
+- usuario actual;
+- protección de endpoints;
+- persistencia de sesión en frontend;
+- logout.
+
+El password NUNCA debe almacenarse en texto plano.
+
+Utiliza password hashing con las herramientas que ya he utilizado, preferiblemente:
+
+pwdlib
+con Argon2.
+
+La lógica debe ser similar a:
+
+Usuario registra contraseña
+↓
+password se hashea
+↓
+hash se guarda en PostgreSQL
+
+Login
+↓
+verificación del password
+↓
+JWT
+↓
+frontend guarda sesión
+↓
+peticiones autenticadas
+
+No inventes otro sistema de autenticación si no es necesario.
+
+==================================================
+FRONTEND
+==================================================
+
+Utiliza Angular.
+
+Debe existir una interfaz moderna y profesional.
+
+Módulos principales:
+
+1. Login
+
+2. Registro
+
+3. Dashboard
+
+4. Diario emocional
+
+5. Recursos
+
+6. Ejercicios
+
+7. Historial emocional
+
+8. Perfil / configuración
+
+9. Alertas o sección de ayuda cuando corresponda.
+
+La interfaz debe ser clara y consistente.
+
+No quiero una interfaz básica con solamente formularios blancos.
+
+==================================================
+DIARIO EMOCIONAL
+==================================================
+
+El usuario debe poder escribir cómo se siente.
+
+Ejemplo:
+
+"Hoy me sentí muy triste porque recordé a mi padre. No tengo muchas ganas de hablar con nadie y me cuesta dormir."
+
+El sistema debe guardar la entrada.
+
+Después puede analizarla.
+
+==================================================
+IA Y ANÁLISIS EMOCIONAL
+==================================================
+
+Esta es una parte central del proyecto.
+
+La IA debe analizar el contenido del diario para identificar patrones emocionales.
+
+La idea inicial contempla las etapas clásicas del duelo:
+
+- negación;
+- ira;
+- negociación;
+- depresión;
+- aceptación.
+
+IMPORTANTE:
+
+Estas etapas NO deben tratarse como diagnóstico médico.
+
+La IA debe expresar los resultados como una estimación orientativa basada en el contenido escrito.
+
+Por ejemplo:
+
+"El contenido presenta señales compatibles con una etapa de tristeza intensa."
+
+No:
+
+"El usuario tiene depresión."
+
+La clasificación debe poder utilizarse para adaptar el acompañamiento.
+
+==================================================
+ACOMPAÑAMIENTO MULTIETAPA
+==================================================
+
+Dependiendo del análisis, el sistema puede recomendar:
+
+NEGACIÓN:
+
+- ejercicios de reconocimiento emocional;
+- escritura reflexiva;
+- recursos sobre aceptación de la pérdida.
+
+IRA:
+
+- ejercicios de regulación emocional;
+- escritura guiada;
+- técnicas de identificación de emociones.
+
+NEGOCIACIÓN:
+
+- ejercicios de reflexión;
+- identificación de pensamientos recurrentes;
+- escritura sobre aquello que la persona desea cambiar.
+
+DEPRESIÓN / TRISTEZA INTENSA:
+
+- ejercicios suaves;
+- recursos de apoyo;
+- actividades de autocuidado;
+- recomendaciones de buscar acompañamiento profesional cuando corresponda.
+
+ACEPTACIÓN:
+
+- ejercicios de integración;
+- reflexión;
+- construcción de nuevos hábitos;
+- memoria positiva.
+
+No quiero que el sistema trate estas etapas como un proceso obligatorio ni lineal.
+
+La persona puede cambiar entre estados.
+
+==================================================
+DETECCIÓN DE RIESGO
+==================================================
+
+ESTA PARTE ES CRÍTICA.
+
+El sistema debe tener reglas éticas estrictas.
+
+Debe detectar posibles señales de:
+
+- ideación suicida;
+- autolesión;
+- crisis emocional grave;
+- peligro inmediato.
+
+Cuando exista una señal de riesgo:
+
+NO debe continuar simplemente con ejercicios normales.
+
+Debe mostrar un mensaje de seguridad.
+
+Debe recomendar buscar ayuda profesional.
+
+Debe mostrar recursos de emergencia apropiados.
+
+Debe dejar claro que la aplicación no sustituye atención profesional.
+
+IMPORTANTE:
+
+No quiero que la IA intente "tratar" una crisis.
+
+No quiero respuestas peligrosas.
+
+No quiero que el sistema minimice expresiones como:
+
+"quiero morir"
+
+"no quiero seguir"
+
+"quiero hacerme daño"
+
+"no puedo más"
+
+Si se detecta una señal grave, debe priorizar la seguridad.
+
+==================================================
+VALOR ÉTICO DE LA IA
+==================================================
+
+Quiero que este aspecto sea importante para la sustentación.
+
+El sistema debe demostrar:
+
+- transparencia;
+- límites de la IA;
+- protección del usuario;
+- detección de riesgo;
+- derivación a profesionales;
+- privacidad;
+- no diagnóstico;
+- no sustitución de terapia.
+
+La aplicación debe dejar claro que es un sistema de acompañamiento.
+
+==================================================
+RECURSOS
+==================================================
+
+Debe existir una biblioteca de recursos.
+
+Por ejemplo:
+
+- artículos;
+- ejercicios;
+- recomendaciones;
+- contenido educativo;
+- recursos de ayuda profesional.
+
+Los recursos deben poder relacionarse con determinadas etapas o situaciones.
+
+==================================================
+HISTORIAL
+==================================================
+
+El usuario debe poder revisar su historial.
+
+Debe poder visualizar:
+
+- entradas del diario;
+- etapa emocional estimada;
+- evolución;
+- ejercicios realizados;
+- recomendaciones;
+- alertas de riesgo cuando corresponda.
+
+No quiero mostrar solamente una lista.
+
+Debe existir una visualización útil de la evolución.
+
+==================================================
+PRIVACIDAD
+==================================================
+
+El sistema manejará información emocional sensible.
+
+Por eso:
+
+- no almacenar contraseñas en texto plano;
+- utilizar JWT;
+- proteger endpoints;
+- validar datos;
+- no exponer información de un usuario a otro;
+- utilizar variables de entorno;
+- no subir .env a GitHub;
+- incluir .env en .gitignore.
+
+==================================================
+DESPLIEGUE
+==================================================
+
+Por ahora prioriza que funcione localmente.
+
+No quiero que el despliegue sea el primer objetivo.
+
+Primero:
+
+Backend funcionando.
+
+Frontend funcionando.
+
+PostgreSQL funcionando.
+
+Autenticación funcionando.
+
+API funcionando.
+
+IA funcionando de forma controlada.
+
+Después veremos despliegue.
+
+==================================================
+COMANDOS
+==================================================
+
+Utiliza comandos que ya hemos trabajado.
+
+Backend:
+
+python -m venv venv
+
+Activación en Windows:
+
+.\venv\Scripts\Activate.ps1
+
+Instalación:
+
+python -m pip install ...
+
+Ejecutar FastAPI:
+
+python -m uvicorn app.main:app --reload
+
+Swagger:
+
+http://127.0.0.1:8000/docs
+
+Frontend:
+
+npm install
+
+ng serve
+
+o el comando que corresponda al proyecto Angular existente.
+
+No cambies innecesariamente las versiones de las herramientas existentes.
+
+==================================================
+REGLA SOBRE TECNOLOGÍAS
+==================================================
+
+NO agregues una tecnología nueva simplemente porque "es mejor".
+
+Si consideras necesario utilizar algo que no hemos trabajado, primero indícalo y explica por qué sería necesario.
+
+Preferencia:
+
+Tecnologías conocidas
++
+arquitectura sencilla
++
+código mantenible
++
+funcionalidad real.
+
+==================================================
+REGLA SOBRE ARCHIVOS
+==================================================
+
+Antes de modificar un archivo existente:
+
+1. Léelo.
+2. Analiza lo que ya existe.
+3. Conserva lo que funciona.
+4. Cambia únicamente lo necesario.
+
+No sobrescribas archivos completos si no es necesario.
+
+Si necesitas crear un archivo nuevo, indica:
+
+- ruta;
+- propósito;
+- contenido.
+
+==================================================
+PRUEBAS
+==================================================
+
+Después de cada módulo importante debemos probar.
+
+Ejemplos:
+
+Backend:
+
+- ejecutar FastAPI;
+- abrir Swagger;
+- probar endpoint;
+- verificar PostgreSQL.
+
+Frontend:
+
+- ejecutar Angular;
+- probar formulario;
+- verificar respuestas;
+- revisar consola.
+
+Autenticación:
+
+- registrar usuario;
+- iniciar sesión;
+- obtener JWT;
+- acceder a endpoint protegido;
+- cerrar sesión.
+
+==================================================
+OBJETIVO FINAL
+==================================================
+
+Quiero llegar a:
+
+Usuario
+↓
+Registro / Login
+↓
+JWT
+↓
+Dashboard
+↓
+Diario emocional
+↓
+Análisis de IA
+↓
+Estimación orientativa del estado emocional
+↓
+Acompañamiento personalizado
+↓
+Ejercicios y recursos
+↓
+Historial
+↓
+Evolución
+↓
+Detección de riesgo
+↓
+Derivación profesional cuando sea necesario
+
+Todo esto debe funcionar como una aplicación web real.
+
+==================================================
+MUY IMPORTANTE
+==================================================
+
+Te voy a proporcionar dos repositorios de GitHub:
+
+1. Repositorio del backend.
+2. Repositorio del frontend.
+
+Primero clónalos.
+
+Después analiza ambos.
+
+NO modifiques nada hasta mostrarme:
+
+- qué encontraste;
+- qué está funcionando;
+- qué falta;
+- qué arquitectura propones;
+- cuál sería el orden de desarrollo.
+
+Después comenzaremos paso a paso.
+
+Quiero que recuerdes durante todo el desarrollo:
+
+NO INVENTAR TECNOLOGÍAS.
+NO HACER TODO DE GOLPE.
+NO BORRAR FUNCIONALIDADES SIN MOTIVO.
+NO HACER UN ÚNICO COMMIT GIGANTE.
+CADA CAMBIO IMPORTANTE = COMMIT EN ESPAÑOL.
+PROBAR ANTES DE CONTINUAR.
+
+Cuando te entregue los links de GitHub, comienza por analizarlos.

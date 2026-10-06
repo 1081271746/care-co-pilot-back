@@ -20,6 +20,8 @@ class LoginRequest(BaseModel):
     @field_validator("email", mode="before")
     @classmethod
     def normalize_email(cls, value: str) -> str:
+        if not isinstance(value, str):
+            raise ValueError("El correo electrónico debe ser texto.")
         normalized = value.strip().casefold()
         if not normalized:
             raise ValueError("El correo electrónico no puede estar vacío.")

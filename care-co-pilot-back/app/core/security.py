@@ -10,6 +10,8 @@ import secrets
 import jwt
 from jwt.exceptions import InvalidTokenError
 from pydantic import SecretStr
+from pwdlib import PasswordHash
+from pwdlib.exceptions import PwdlibError
 
 from app.core.config import Settings, load_settings
 
@@ -24,6 +26,7 @@ PASSWORD_SALT_LENGTH = 16
 PASSWORD_DERIVED_KEY_LENGTH = 32
 MINIMUM_ACCEPTED_PASSWORD_HASH_ITERATIONS = 100_000
 MAXIMUM_ACCEPTED_PASSWORD_HASH_ITERATIONS = 1_000_000
+PASSWORD_HASHER = PasswordHash.recommended()
 
 
 class AuthenticationConfigurationError(RuntimeError):
@@ -35,7 +38,14 @@ class InvalidAccessTokenError(ValueError):
 
 
 def hash_password(password: str) -> str:
-    """Almacena una contraseña con PBKDF2-HMAC-SHA256 y sal aleatoria."""
+    """Hashea nuevas contraseñas con Argon2 mediante pwdlib."""
+    if not isinstance(password, str) or not password:
+        raise ValueError("La contraseña no puede estar vacía.")
+    return PASSWORD_HASHER.hash(password)
+
+
+def _legacy_hash_password(password: str) -> str:
+    """Compatibilidad para verificar el formato PBKDF2 usado anteriormente."""
     if not isinstance(password, str) or not password:
         raise ValueError("La contraseña no puede estar vacía.")
 
@@ -62,6 +72,12 @@ def verify_password(password: str, encoded_hash: str | None) -> bool:
 
     has_stored_hash = isinstance(encoded_hash, str) and bool(encoded_hash)
     hash_to_verify = encoded_hash if has_stored_hash else _DUMMY_PASSWORD_HASH
+    if hash_to_verify.startswith("$argon2"):
+        try:
+            matches = PASSWORD_HASHER.verify(password, hash_to_verify)
+        except (PwdlibError, ValueError, TypeError):
+            return False
+        return has_stored_hash and matches
     try:
         (
             algorithm,
@@ -127,6 +143,11 @@ def _signing_key(settings: Settings | None = None) -> str:
     return value
 
 
+def verify_authentication_configuration() -> None:
+    """Comprueba la configuración sin emitir tokens ni devolver el secreto."""
+    _signing_key()
+
+
 def create_access_token(
     user_id: str,
     expires_delta: timedelta | None = None,
@@ -152,6 +173,7 @@ def create_access_token(
         "exp": now + duration,
         "iss": JWT_ISSUER,
         "type": ACCESS_TOKEN_TYPE,
+        "jti": secrets.token_hex(16),
     }
     return jwt.encode(claims, _signing_key(settings), algorithm=JWT_ALGORITHM)
 
@@ -162,6 +184,11 @@ def decode_access_token(
     settings: Settings | None = None,
 ) -> str:
     """Valida firma, algoritmo, emisor, uso y expiración; devuelve el subject."""
+    return decode_access_claims(token, settings=settings)["sub"]
+
+
+def decode_access_claims(token: str, *, settings: Settings | None = None) -> dict:
+    """Entrega claims únicamente después de validar completamente el token."""
     try:
         claims = jwt.decode(
             token,
@@ -181,4 +208,5 @@ def decode_access_token(
     subject = subject.strip()
     if not subject:
         raise InvalidAccessTokenError("El token de acceso no es válido.")
-    return subject
+    claims["sub"] = subject
+    return claims
