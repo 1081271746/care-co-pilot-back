@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from app.core.config import load_settings
 from app.routers.auth import router as auth_router
 from app.routers.health import router as health_router
+from app.routers.private_records import router as private_records_router
 
 
 def create_app() -> FastAPI:
@@ -16,6 +17,7 @@ def create_app() -> FastAPI:
         ),
     )
     application.include_router(auth_router)
+    application.include_router(private_records_router)
     application.include_router(health_router)
     return application
 
