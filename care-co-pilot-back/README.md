@@ -9,6 +9,8 @@ atención profesional o servicios de emergencia.
 - Configuración mediante `APP_NAME`, `APP_ENV` y `DATABASE_URL`.
 - Motor SQLAlchemy y sesiones PostgreSQL creados bajo demanda.
 - Comprobación manual de la base mediante `SELECT 1`, sin crear tablas.
+- Modelo mínimo de cuenta: correo único, hash de contraseña y fecha de creación.
+- Migraciones Alembic explícitas; la API no crea ni modifica tablas al iniciar.
 - Validación de tokens de acceso JWT firmados con HS256 y una clave del entorno.
 - `GET /auth/me`: devuelve la identidad solo cuando el bearer token es válido.
 - Comprobación reutilizable de propiedad de registros que responde 404 para
@@ -17,10 +19,10 @@ atención profesional o servicios de emergencia.
 - Documentación automática en `/docs` y contrato OpenAPI en `/openapi.json`.
 - Pruebas de configuración, conexión y HTTP con `unittest`.
 
-Esta etapa aún no crea tablas ni endpoints de datos personales. Por eso no
-ofrece un endpoint de inicio de sesión: emitir tokens sin comprobar credenciales
-contra cuentas persistidas permitiría suplantar usuarios. El código que autentique
-una cuenta debe llamar a `create_access_token` solo después de verificarla.
+Esta etapa crea únicamente la tabla de cuentas; aún no ofrece un endpoint de inicio
+de sesión ni de datos personales. Emitir tokens sin comprobar credenciales contra
+cuentas persistidas permitiría suplantar usuarios. El código que autentique una
+cuenta debe llamar a `create_access_token` solo después de verificarla.
 Las rutas de datos deben exigir `get_current_user` y comprobar la propiedad antes
 de devolver, modificar o eliminar registros. El endpoint `/health` confirma
 únicamente que la API responde; no comprueba PostgreSQL.
@@ -31,7 +33,8 @@ de devolver, modificar o eliminar registros. El endpoint `/health` confirma
 app/
 ├── core/        # Configuración, seguridad JWT y autorización por propietario
 ├── database/    # Motor, sesiones y comprobación de PostgreSQL
-├── models/      # Modelos SQLAlchemy futuros
+├── models/      # Modelos SQLAlchemy
+├── migrations/  # Cambios versionados del esquema con Alembic
 ├── routers/     # Endpoints
 ├── schemas/     # Validación y respuestas Pydantic
 ├── services/    # Lógica de negocio futura
@@ -97,6 +100,23 @@ python -m uvicorn app.main:app --reload
 ```powershell
 python -m unittest discover -s tests -v
 ```
+
+## Aplicar o revertir el esquema
+
+Desde la raíz del backend y con `DATABASE_URL` configurada, aplica únicamente
+las migraciones versionadas con:
+
+```powershell
+alembic upgrade head
+```
+
+Para revertir la migración inicial y eliminar la tabla `users`:
+
+```powershell
+alembic downgrade base
+```
+
+La API no ejecuta esos comandos ni modifica el esquema durante el inicio.
 
 Las pruebas HTTP inician y detienen su propio servidor Uvicorn en un puerto libre.
 No requieren que ejecutes la API manualmente ni una base PostgreSQL. Para probar

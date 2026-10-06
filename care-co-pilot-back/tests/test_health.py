@@ -34,6 +34,7 @@ class HealthHttpTests(unittest.TestCase):
             APP_ENV="test",
             APP_NAME="API de prueba",
             JWT_SECRET_KEY=TEST_JWT_SECRET,
+            DATABASE_URL="",
         )
         cls.server = subprocess.Popen(
             [
