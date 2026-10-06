@@ -145,9 +145,134 @@ class PrivateRecordHttpTests(unittest.TestCase):
         owner_records = self.request_as("1", "GET", "/records")
         other_records = self.request_as("2", "GET", "/records")
         self.assertEqual(owner_records.status_code, 200)
-        self.assertEqual([record["id"] for record in owner_records.json()], [record_id])
+        self.assertEqual(
+            [record["id"] for record in owner_records.json()["items"]], [record_id],
+        )
         self.assertEqual(other_records.status_code, 200)
-        self.assertEqual(other_records.json(), [])
+        self.assertEqual(
+            other_records.json(),
+            {"items": [], "limit": 20, "offset": 0, "has_more": False},
+        )
+
+    def seed_records(self, count: int, owner_id: int = 1):
+        """Comparte fecha para comprobar el desempate por ID en ambas bases."""
+        with self.session_factory() as session:
+            records = [
+                PrivateRecord(
+                    owner_id=owner_id,
+                    title=f"Nota {index}",
+                    content="Contenido privado",
+                    created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                )
+                for index in range(count)
+            ]
+            session.add_all(records)
+            session.flush()
+            ids = [record.id for record in records]
+            session.commit()
+            return ids
+
+    def test_successive_pages_have_stable_order_without_duplicates(self):
+        ids = self.seed_records(5)
+        with self.session_factory() as session:
+            # La fecha tiene prioridad incluso si el identificador es menor.
+            session.get(PrivateRecord, ids[0]).created_at = datetime(
+                2026, 1, 2, tzinfo=timezone.utc,
+            )
+            session.commit()
+        expected = [ids[0], *reversed(ids[1:])]
+        collected = []
+        for offset, has_more in ((0, True), (2, True), (4, False), (6, False)):
+            with self.subTest(offset=offset):
+                response = self.request_as(
+                    "1", "GET", "/records", params={"limit": 2, "offset": offset},
+                )
+                self.assertEqual(response.status_code, 200)
+                page = response.json()
+                self.assertEqual(set(page), {"items", "limit", "offset", "has_more"})
+                self.assertEqual(page["limit"], 2)
+                self.assertEqual(page["offset"], offset)
+                self.assertEqual(page["has_more"], has_more)
+                page_ids = [record["id"] for record in page["items"]]
+                self.assertEqual(page_ids, expected[offset:offset + 2])
+                collected.extend(page_ids)
+                repeated = self.request_as(
+                    "1", "GET", "/records", params={"limit": 2, "offset": offset},
+                )
+                self.assertEqual(repeated.json(), page)
+        self.assertEqual(collected, expected)
+        self.assertEqual(len(collected), len(set(collected)))
+
+    def test_default_page_does_not_return_the_whole_history(self):
+        ids = self.seed_records(21)
+        response = self.request_as("1", "GET", "/records")
+        self.assertEqual(response.status_code, 200)
+        page = response.json()
+        self.assertEqual(page["limit"], 20)
+        self.assertEqual(page["offset"], 0)
+        self.assertTrue(page["has_more"])
+        self.assertEqual(
+            [record["id"] for record in page["items"]], list(reversed(ids))[:20],
+        )
+
+    def test_maximum_limit_and_exact_page_boundary(self):
+        ids = self.seed_records(100)
+        response = self.request_as("1", "GET", "/records", params={"limit": 100})
+        self.assertEqual(response.status_code, 200)
+        page = response.json()
+        self.assertEqual(page["limit"], 100)
+        self.assertEqual(len(page["items"]), 100)
+        self.assertFalse(page["has_more"])
+        self.assertEqual(
+            [record["id"] for record in page["items"]], list(reversed(ids)),
+        )
+        last = self.request_as(
+            "1", "GET", "/records", params={"limit": 1, "offset": 99},
+        )
+        self.assertEqual(last.status_code, 200)
+        self.assertEqual([r["id"] for r in last.json()["items"]], [ids[0]])
+        self.assertFalse(last.json()["has_more"])
+        beyond = self.request_as(
+            "1", "GET", "/records", params={"limit": 100, "offset": 100},
+        )
+        self.assertEqual(beyond.status_code, 200)
+        self.assertEqual(
+            beyond.json(),
+            {"items": [], "limit": 100, "offset": 100, "has_more": False},
+        )
+
+    def test_invalid_pagination_returns_validation_error(self):
+        for params in (
+            {"limit": 0}, {"limit": -1}, {"limit": 101},
+            {"limit": "abc"}, {"limit": "1.5"}, {"limit": ""},
+            {"offset": -1}, {"offset": "abc"}, {"offset": "1.5"},
+            {"offset": ""},
+        ):
+            with self.subTest(params=params):
+                response = self.request_as("1", "GET", "/records", params=params)
+                self.assertEqual(response.status_code, 422)
+                self.assertEqual(response.json()["detail"][0]["loc"][0], "query")
+
+    def test_pagination_and_has_more_are_isolated_between_accounts(self):
+        ids = {"1": [], "2": []}
+        for owner in (1, 2, 1, 2, 1, 2):
+            ids[str(owner)].extend(self.seed_records(1, owner_id=owner))
+        for owner in ("1", "2"):
+            expected = list(reversed(ids[owner]))
+            for offset in (0, 2, 4):
+                with self.subTest(owner=owner, offset=offset):
+                    response = self.request_as(
+                        owner, "GET", "/records",
+                        params={"limit": 2, "offset": offset, "owner_id": 3 - int(owner)},
+                    )
+                    self.assertEqual(response.status_code, 200)
+                    page = response.json()
+                    self.assertEqual(
+                        [r["id"] for r in page["items"]], expected[offset:offset + 2],
+                    )
+                    self.assertEqual(page["has_more"], offset + 2 < len(expected))
+                    for record in page["items"]:
+                        self.assertNotIn("owner_id", record)
 
     def test_client_cannot_choose_a_different_record_owner(self):
         response = self.request_as(

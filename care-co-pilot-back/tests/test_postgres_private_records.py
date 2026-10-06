@@ -49,7 +49,9 @@ class PostgresPrivateRecordHttpTests(fast_tests.PrivateRecordHttpTests):
             with self.subTest(owner=owner):
                 listed = self.request_as(owner, "GET", "/records")
                 self.assertEqual(listed.status_code, 200)
-                self.assertEqual([r["id"] for r in listed.json()], [ids[owner]])
+                self.assertEqual(
+                    [r["id"] for r in listed.json()["items"]], [ids[owner]],
+                )
                 for method, payload in (
                     ("GET", None),
                     ("PATCH", {"content": "Intento ajeno"}),
@@ -85,7 +87,10 @@ class PostgresPrivateRecordHttpTests(fast_tests.PrivateRecordHttpTests):
             deleted = self.request_as(owner, "DELETE", f"/records/{ids[owner]}")
             self.assertEqual(deleted.status_code, 204)
             self.assertEqual(deleted.content, b"")
-            self.assertEqual(self.request_as(owner, "GET", "/records").json(), [])
+            self.assertEqual(
+                self.request_as(owner, "GET", "/records").json(),
+                {"items": [], "limit": 20, "offset": 0, "has_more": False},
+            )
             self.assertEqual(
                 self.request_as(owner, "GET", f"/records/{ids[owner]}").status_code,
                 404,

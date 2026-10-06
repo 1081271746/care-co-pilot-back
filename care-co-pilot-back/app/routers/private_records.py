@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -12,7 +12,10 @@ from app.models.user import User
 from app.routers.auth import get_current_user
 from app.schemas.auth import AuthenticatedUser
 from app.schemas.private_record import (
+    DEFAULT_RECORD_LIMIT,
+    MAX_RECORD_LIMIT,
     PrivateRecordCreate,
+    PrivateRecordPage,
     PrivateRecordResponse,
     PrivateRecordUpdate,
 )
@@ -85,19 +88,29 @@ def create_record(
     return record
 
 
-@router.get("", response_model=list[PrivateRecordResponse])
+@router.get("", response_model=PrivateRecordPage)
 def list_records(
     current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
-) -> list[PrivateRecord]:
-    """Devuelve exclusivamente los registros del dueño autenticado."""
+    limit: Annotated[int, Query(ge=1, le=MAX_RECORD_LIMIT)] = DEFAULT_RECORD_LIMIT,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> PrivateRecordPage:
+    """Pagina solo los registros propios, con desempate estable por ID."""
     owner_id = _owner_id(current_user, db)
-    return list(
+    records = list(
         db.scalars(
             select(PrivateRecord)
             .where(PrivateRecord.owner_id == owner_id)
             .order_by(PrivateRecord.created_at.desc(), PrivateRecord.id.desc())
+            .offset(offset)
+            .limit(limit + 1)
         ).all()
+    )
+    return PrivateRecordPage(
+        items=records[:limit],
+        limit=limit,
+        offset=offset,
+        has_more=len(records) > limit,
     )
 
 

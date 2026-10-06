@@ -29,6 +29,29 @@ exigir `get_current_user` y comprobar la propiedad antes de devolver, modificar 
 eliminar registros. El endpoint `/health` confirma únicamente que la API responde;
 no comprueba PostgreSQL.
 
+## Consultar registros privados por páginas
+
+`GET /records` requiere un JWT válido y devuelve exclusivamente registros de la
+cuenta autenticada. Acepta `limit` (entero entre 1 y 100, por defecto 20) y
+`offset` (entero no negativo, por defecto 0). Los parámetros inválidos reciben 422.
+El orden es `created_at` descendente y, si las fechas coinciden, `id` descendente.
+
+La respuesta deja de ser una lista directa y pasa a ser un objeto:
+
+```json
+{"items": [], "limit": 20, "offset": 0, "has_more": false}
+```
+
+Cada elemento de `items` conserva el contrato del registro individual. Para
+consultar la página siguiente, aumenta `offset` en `limit` mientras `has_more`
+sea verdadero. Una cuenta sin registros o un desplazamiento fuera del historial
+devuelve `items: []` y `has_more: false`. Este indicador solo considera registros
+propios; la consulta carga como máximo `limit + 1` filas, no todo el historial.
+
+El orden es determinista mientras los datos no cambien: al crear o eliminar
+registros entre peticiones, la paginación por desplazamiento puede repetir u
+omitir elementos. No representa una instantánea del historial.
+
 ## Estructura
 
 ```text

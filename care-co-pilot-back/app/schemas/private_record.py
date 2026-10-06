@@ -4,6 +4,9 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+DEFAULT_RECORD_LIMIT = 20
+MAX_RECORD_LIMIT = 100
+
 
 class PrivateRecordCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -35,3 +38,12 @@ class PrivateRecordResponse(BaseModel):
     content: str
     created_at: datetime
     updated_at: datetime
+
+
+class PrivateRecordPage(BaseModel):
+    """Página de registros del propietario, sin totales de otras cuentas."""
+
+    items: list[PrivateRecordResponse]
+    limit: int = Field(ge=1, le=MAX_RECORD_LIMIT)
+    offset: int = Field(ge=0)
+    has_more: bool
