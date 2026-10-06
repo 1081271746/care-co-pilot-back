@@ -82,3 +82,31 @@ class OpenAIAdapterTests(unittest.TestCase):
         with patch("app.services.openai_analysis.urlopen", return_value=io.BytesIO(b"x" * (MAX_RESPONSE_BYTES + 1))):
             with self.assertRaises(AnalysisUnavailable):
                 OpenAIAnalyzer(SETTINGS).analyze("Una entrada.")
+
+    def test_quota_error_exposes_only_safe_status_and_known_code(self):
+        error = HTTPError(
+            "https://api.openai.com", 429, "private-provider-message", {},
+            io.BytesIO(json.dumps({"error": {
+                "code": "insufficient_quota", "message": "private-provider-body",
+            }}).encode()),
+        )
+        with patch("app.services.openai_analysis.urlopen", side_effect=error):
+            with self.assertRaises(AnalysisUnavailable) as caught:
+                OpenAIAnalyzer(SETTINGS).analyze("Una entrada.")
+        self.assertEqual(caught.exception.provider_status, 429)
+        self.assertEqual(caught.exception.provider_error_code, "insufficient_quota")
+        self.assertIn("cuota", caught.exception.message)
+        self.assertNotIn("private-provider", str(caught.exception))
+
+    def test_429_without_known_code_does_not_assume_exhausted_balance(self):
+        error = HTTPError(
+            "https://api.openai.com", 429, "private-provider-message", {},
+            io.BytesIO(b"private-provider-body"),
+        )
+        with patch("app.services.openai_analysis.urlopen", side_effect=error):
+            with self.assertRaises(AnalysisUnavailable) as caught:
+                OpenAIAnalyzer(SETTINGS).analyze("Una entrada.")
+        self.assertEqual(caught.exception.provider_status, 429)
+        self.assertIsNone(caught.exception.provider_error_code)
+        self.assertIn("límite de uso", caught.exception.message)
+        self.assertNotIn("private-provider", str(caught.exception))

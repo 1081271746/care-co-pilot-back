@@ -236,6 +236,14 @@ python -m app.services.openai_analysis
 Imprime únicamente las etiquetas orientativas y el modelo, nunca la clave.
 La conexión no debe declararse verificada hasta que esta solicitud real funcione.
 
+Un HTTP 429 de OpenAI puede indicar límite temporal de solicitudes, saldo
+prepago agotado o límite de gasto/cuota. Revisa el proyecto de OpenAI que corresponde
+a la clave; no se puede inferir saldo agotado solo por el estado HTTP.
+Consulta <https://developers.openai.com/api/docs/guides/rate-limits>.
+No se reintenta automáticamente. Los mensajes externos y cuerpos de error no se
+exponen; la verificación manual imprime solo el estado y un código conocido
+cuando existe.
+
 ### 4. Iniciar FastAPI
 
 Primero prepara las tablas y carga el catálogo:

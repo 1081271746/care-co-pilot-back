@@ -38,9 +38,14 @@ INSTRUCTIONS = (
 
 
 class AnalysisUnavailable(Exception):
-    def __init__(self, message: str, status_code: int = 503):
+    def __init__(
+        self, message: str, status_code: int = 503,
+        provider_status: int | None = None, provider_error_code: str | None = None,
+    ):
         self.message = message
         self.status_code = status_code
+        self.provider_status = provider_status
+        self.provider_error_code = provider_error_code
         super().__init__(message)
 
 
@@ -95,8 +100,36 @@ class OpenAIAnalyzer:
                 raise AnalysisUnavailable("OpenAI no devolvió un resultado válido.", 502)
             return ProviderAnalysis.model_validate_json(texts[0])
         except HTTPError as error:
-            error.close()
-            raise AnalysisUnavailable("OpenAI no está disponible. Revisa la configuración o inténtalo más tarde.") from None
+            # Nunca exponer el cuerpo ni mensajes externos: pueden contener datos.
+            code = None
+            try:
+                error_data = json.loads(error.read(MAX_RESPONSE_BYTES))
+                candidate = error_data.get("error", {}).get("code")
+                if candidate in {
+                    "insufficient_quota", "rate_limit_exceeded", "invalid_api_key",
+                    "model_not_found", "invalid_json_schema", "unsupported_parameter",
+                }:
+                    code = candidate
+            except (ValueError, TypeError, AttributeError, OSError):
+                pass
+            finally:
+                error.close()
+            messages = {
+                400: "OpenAI rechazó la configuración de la solicitud.",
+                401: "OpenAI rechazó las credenciales del servidor.",
+                403: "La cuenta no tiene permiso para esta solicitud de OpenAI.",
+                404: "El modelo configurado no está disponible para esta cuenta.",
+                429: "OpenAI indicó un límite de uso; revisa la cuota, el saldo o los límites de solicitudes.",
+            }
+            message = (
+                "La cuenta de OpenAI no tiene cuota disponible. Revisa su facturación y límites."
+                if code == "insufficient_quota" else messages.get(
+                    error.code, "OpenAI no está disponible. Inténtalo más tarde.",
+                )
+            )
+            raise AnalysisUnavailable(
+                message, provider_status=error.code, provider_error_code=code,
+            ) from None
         except (URLError, TimeoutError, OSError):
             raise AnalysisUnavailable("No fue posible comunicarse con OpenAI. Tu entrada sigue guardada.") from None
         except (ValidationError, ValueError, TypeError, KeyError, AttributeError):
@@ -121,4 +154,9 @@ if __name__ == "__main__":
         }, ensure_ascii=False))
     except AnalysisUnavailable as error:
         print(error.message)
+        if error.provider_status is not None:
+            print(json.dumps({
+                "provider_status": error.provider_status,
+                "provider_error_code": error.provider_error_code,
+            }))
         raise SystemExit(1) from None
