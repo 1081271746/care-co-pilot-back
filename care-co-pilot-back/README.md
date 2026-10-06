@@ -103,6 +103,56 @@ python -m uvicorn app.main:app --reload
 python -m unittest discover -s tests -v
 ```
 
+### Integración con PostgreSQL real (nunca producción)
+
+Las pruebas rápidas SQLite se conservan. Las pruebas `test_postgres*.py` usan
+las mismas rutas HTTP y las migraciones Alembic completas, no `create_all`.
+Sin configuración explícita, las pruebas que requieren PostgreSQL se omiten;
+las guardas de seguridad siempre se prueban.
+
+Con PostgreSQL instalado (`initdb`, `pg_ctl` y `createdb` en PATH), ejecuta:
+
+```sh
+python tests/run_postgres.py
+```
+
+Este comando crea un clúster temporal en un puerto libre de loopback, ejecuta
+la integración y lo detiene y elimina incluso si fallan las pruebas. No necesita
+contraseñas ni lee `DATABASE_URL`. Usa autenticación local trust únicamente para
+datos ficticios en ese clúster desechable; no usar esta configuración para la API.
+No se ejecuta como root.
+
+También puedes usar **una base PostgreSQL local dedicada exclusivamente a pruebas**
+con nombre terminado en `_test`. Configura en tu gestor seguro de variables:
+
+- `TEST_DATABASE_URL`: URL PostgreSQL con psycopg, sin parámetros adicionales.
+  No reutilices la base de desarrollo ni de producción.
+- `APP_ENV=test`.
+- `TEST_POSTGRES_ALLOW_MIGRATIONS=1`: autorización explícita de DDL en la base de pruebas.
+
+```sh
+python -m unittest discover -s tests -p 'test_postgres*.py' -v
+```
+
+Solo se aceptan `localhost`, `127.0.0.1` o `::1`; no se permiten hosts remotos,
+SQLite, parámetros que redirijan el host ni un entorno de producción. La suite
+lee su configuración de conexión directamente del proceso, **no del archivo
+`.env`**, y nunca recurre a `DATABASE_URL` para conectarse. Si se autoriza DDL sin URL o se configura una URL insegura,
+falla en lugar de omitir silenciosamente la integración.
+
+Cada prueba crea un esquema aleatorio exclusivo y lo elimina al terminar. El
+usuario de pruebas necesita permisos de conexión y creación de esquemas; no
+necesita privilegios de superusuario. La conexión explícita de Alembic asegura que
+tablas, índices y `alembic_version` se creen solo en ese esquema, sin tocar `public`.
+Una interrupción forzada del proceso puede dejar esquemas `private_test_*`; usa una
+base desechable, no una base compartida. Nunca guardes URL reales o contraseñas en
+archivos versionados; `.env.example` deja la variable vacía.
+
+La integración verifica CRUD de ambos propietarios, rechazo de cambios de dueño,
+JWT inválidos, 404 idénticos para registros ajenos/inexistentes, restricciones
+de claves foráneas (inserción y actualización), borrado en cascada limitado al
+propietario eliminado y downgrade/upgrade conservando las cuentas.
+
 ## Aplicar o revertir el esquema
 
 Desde la raíz del backend y con `DATABASE_URL` configurada, aplica únicamente

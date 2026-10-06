@@ -2,3 +2,4 @@
 - [Alcance Git de los clones](nested-repository-git.md) — verificar la raíz antes de commits; sin metadata anidada, Git puede operar sobre el repositorio contenedor.
 - [Verificar cuentas de GitHub](github-account-verification.md) — distinguir el nombre visible del login antes de declarar que una URL pertenece a otra cuenta.
 - [Tooling Python en el monorepo](python-tooling.md) — revisar efectos secundarios del instalador Replit y usar `httpx2` para pruebas con Starlette reciente.
+- [Aislamiento PostgreSQL](postgres-test-isolation.md) — integración local y desechable, separada de la conexión de la aplicación y de las pruebas rápidas.

@@ -28,6 +28,19 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Aplica migraciones usando la configuración PostgreSQL de la aplicación."""
+    # Alembic admite una conexión explícita para pruebas aisladas. No cargar
+    # DATABASE_URL ni abrir otra conexión cuando el llamador ya proporciona una.
+    connection = config.attributes.get("connection")
+    if connection is not None:
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=True,
+        )
+        with context.begin_transaction():
+            context.run_migrations()
+        return
+
     engine = create_database_engine()
     try:
         with engine.connect() as connection:
