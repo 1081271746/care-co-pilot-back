@@ -34,9 +34,9 @@ un 503 genérico; las respuestas incluyen `Cache-Control: no-store`.
 
 ## Estado del análisis y límites de seguridad
 
-**No hay un proveedor de IA conectado todavía.** Las entradas se guardan de verdad,
-pero no se inventan estimaciones emocionales: `estimated_stage` y `analysis_result`
-permanecen nulos, con `analysis_status: pending`.
+**Proveedor: OpenAI con cuenta propia.** Al guardar una entrada no se envía
+automáticamente: `estimated_stage` y `analysis_result` permanecen nulos, con
+`analysis_status: pending`, hasta solicitar análisis con consentimiento.
 
 Al guardar o modificar el contenido se ejecutan reglas locales conservadoras para
 expresiones como «quiero morir», «quiero hacerme daño», «no quiero seguir» y «no puedo
@@ -46,14 +46,44 @@ clínica. `unassessed` significa que no se reconocieron las expresiones contempl
 omitir señales o generar falsas alarmas, por ejemplo ante citas o negaciones.
 
 Una señal produce `safety_priority` y ayuda humana/profesional antes de cualquier
-ejercicio. `/help` está disponible sin login. Los números de emergencia por país
-están pendientes de definir y verificar; no se asume el país del usuario.
+ejercicio. `/help` está disponible sin login. Para Colombia incluye 123 (emergencias)
+y 106 (orientación en salud mental), con fuentes oficiales y fecha de verificación.
+El WhatsApp +57 300 754 8933 está identificado como distrital de Bogotá, no nacional.
+Los contactos se verificaron el 6 de octubre de 2026 y requieren revisión periódica.
+`/help?country_code=CO` selecciona Colombia; otro país recibe orientación general
+sin números colombianos. El diario utiliza el país del perfil, si está indicado,
+o la cobertura inicial de Colombia, sin inferir la ubicación por IP.
 
-`POST /journal/{id}/analyze` exige propiedad y consentimiento explícito booleano.
+`POST /journal/{id}/analyze` exige propiedad, consentimiento explícito booleano y
+aceptación de la versión vigente del aviso público `GET /help/privacy`:
+
+```json
+{"consent_to_external_analysis": true, "privacy_notice_version": "2026-10-06"}
+```
+
 Si hay riesgo devuelve primero la orientación de seguridad, sin enviar contenido
-a terceros. Sin riesgo y sin consentimiento devuelve 422; con consentimiento pero
-sin proveedor devuelve 503 y conserva la entrada. No se realizan solicitudes
-externas de análisis en esta versión.
+a terceros. Sin consentimiento o aviso vigente devuelve 422. Con configuración
+ausente/deshabilitada o fallo de comunicación devuelve 503 y conserva la entrada.
+Un resultado inválido, incompleto o rechazado por OpenAI devuelve 502 sin guardar
+una estimación. Nunca se presentan resultados inventados como IA.
+
+El servidor usa HTTPS a `https://api.openai.com/v1/responses`, esquema JSON estricto,
+tiempo de espera limitado y una sola solicitud sin reintentos automáticos. Envía
+solo el contenido de la entrada seleccionada, sin añadir correo, nombre, id o
+resto del diario. El propio texto puede contener datos personales: debe advertirse
+al usuario antes de aceptar. Solicita `store: false`, lo cual **no garantiza
+retención cero**: OpenAI puede conservar datos para controles de seguridad y abuso
+(por defecto hasta 30 días, con excepciones según su política). Ver
+<https://developers.openai.com/api/docs/guides/your-data>.
+
+El modelo solo devuelve etiquetas permitidas de etapa, emociones y posibles
+señales. La orientación y la ayuda se redactan en el servidor: no se guardan ni
+muestran consejos libres del modelo. Si OpenAI advierte riesgo, se activa
+`safety_priority`, no se muestra una etapa y las recomendaciones normales quedan
+vacías. `unassessed` tampoco es una garantía de seguridad cuando lo estima la IA.
+Un análisis completado se reutiliza sin otro envío; editar el contenido lo reinicia.
+Si cambia la entrada durante la llamada, no se sobrescribe con el resultado viejo
+(409). Se vuelve a validar cuenta y token antes de guardar.
 
 Las etapas orientativas no representan diagnósticos ni un proceso obligatorio
 o lineal. `intense_sadness` no significa una depresión diagnosticada.
@@ -73,7 +103,7 @@ Todas las rutas salvo salud, ayuda, registro, login y documentación requieren
 | Preferencias | `GET/PATCH/DELETE /profile` |
 | Resúmenes | `GET /dashboard`, `GET /history?days=30` |
 | Registros genéricos previos | `POST/GET /records`, `GET/PATCH/DELETE /records/{id}` |
-| Operación y ayuda | `GET /health`, `GET /health/ready`, `GET /help` |
+| Operación y ayuda | `GET /health`, `GET /health/ready`, `GET /help`, `GET /help/privacy` |
 
 Registro acepta `email` y `password` (entre 12 y 1024 caracteres); después se inicia
 sesión por separado. JWT caduca a los 30 minutos. Logout devuelve 204 y revoca
@@ -83,7 +113,7 @@ vencidas al cerrar sesiones. El frontend deberá borrar su token al recibir 204.
 
 Los nombres opcionales, país y objetivo de acompañamiento se guardan con
 `PATCH /profile`. `country_code` acepta dos letras mayúsculas (normaliza minúsculas)
-o null para limpiarlo; todavía no configura números de emergencia. Borrar el
+o null para limpiarlo; se utiliza para seleccionar la orientación de seguridad. Borrar el
 perfil restablece preferencias, **no** elimina la cuenta ni el diario.
 
 Diario, catálogo e historial de ejercicios usan `limit` (1–100) y `before_id`
@@ -181,6 +211,29 @@ El controlador instalado es `psycopg` 3 (distribución `psycopg[binary]`).
 SQLAlchemy no incluye un controlador PostgreSQL y, sin indicarlo, suele intentar
 usar `psycopg2`. Esta configuración convierte las URL `postgresql://` al
 controlador `postgresql+psycopg` de forma explícita.
+
+### OpenAI opcional, con cuenta propia
+
+Configura `OPENAI_API_KEY` únicamente en el gestor seguro o `.env` local ignorado.
+Establece `OPENAI_ANALYSIS_ENABLED=true` para habilitar el análisis explícito.
+`OPENAI_MODEL` usa `gpt-5.4-mini` y puede cambiarse por un modelo compatible con
+Responses API, Structured Outputs y razonamiento `low`. El modelo se documenta en
+<https://developers.openai.com/api/docs/models/gpt-5.4-mini>.
+`OPENAI_TIMEOUT_SECONDS` admite 1–60 segundos (25 por defecto).
+El consumo se cobra a tu cuenta de OpenAI; configura límites de gasto allí.
+El frontend deberá mostrar `GET /help/privacy` y recoger consentimiento antes
+de llamar al análisis. No enviar la clave al navegador. Las pruebas normales usan
+proveedores de prueba, nunca OpenAI ni una clave real.
+
+Verificación real **opcional y con consumo facturable**, solo con un texto ficticio,
+sin conexión a la base ni lectura de diarios:
+
+```powershell
+python -m app.services.openai_analysis
+```
+
+Imprime únicamente las etiquetas orientativas y el modelo, nunca la clave.
+La conexión no debe declararse verificada hasta que esta solicitud real funcione.
 
 ### 4. Iniciar FastAPI
 

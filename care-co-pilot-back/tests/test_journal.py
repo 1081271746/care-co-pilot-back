@@ -1,10 +1,13 @@
 """Diario privado, prioridad de seguridad y ausencia explícita de IA."""
 
 import unittest
+from unittest.mock import patch
 
 import test_private_records as fixture
 from app.models.journal_entry import JournalEntry
 from app.services.safety import review_safety
+from app.core.config import Settings
+from app.schemas.analysis import PRIVACY_NOTICE_VERSION
 
 
 class SafetyTests(unittest.TestCase):
@@ -36,9 +39,11 @@ class JournalHttpTests(fixture.PrivateRecordHttpTests):
         self.assertIsNone(entry["estimated_stage"])
         self.assertIsNone(entry["analysis_result"])
         self.assertNotIn("owner_id", entry)
-        response = self.request_as("1", "POST", f"/journal/{entry['id']}/analyze", json={
-            "consent_to_external_analysis": True,
-        })
+        with patch("app.services.openai_analysis.load_settings", return_value=Settings()):
+            response = self.request_as("1", "POST", f"/journal/{entry['id']}/analyze", json={
+                "consent_to_external_analysis": True,
+                "privacy_notice_version": PRIVACY_NOTICE_VERSION,
+            })
         self.assertEqual(response.status_code, 503)
         self.assertEqual(
             self.request_as("1", "GET", f"/journal/{entry['id']}").status_code, 200,

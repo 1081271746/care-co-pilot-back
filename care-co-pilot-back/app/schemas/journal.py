@@ -63,3 +63,4 @@ class JournalPage(BaseModel):
 class AnalysisRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     consent_to_external_analysis: bool = Field(default=False, strict=True)
+    privacy_notice_version: Literal["2026-10-06"] | None = None

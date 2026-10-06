@@ -4,6 +4,7 @@ import re
 import unicodedata
 
 from app.schemas.safety import HelpResource, SafetyResult
+from app.services.emergency_resources import colombia_resources
 
 URGENT_PHRASES = (
     "quiero morir", "quiero matarme", "me voy a matar", "voy a suicidarme",
@@ -24,8 +25,9 @@ def normalize_text(content: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", plain).strip()
 
 
-def help_resources() -> list[HelpResource]:
-    return [
+def help_resources(country_code: str = "CO") -> list[HelpResource]:
+    local = colombia_resources() if country_code.upper() == "CO" else []
+    return local + [
         HelpResource(
             title="Peligro inmediato",
             description=(
@@ -48,11 +50,16 @@ def help_resources() -> list[HelpResource]:
     ]
 
 
-def review_safety(content: str) -> SafetyResult:
+def review_safety(content: str, country_code: str = "CO") -> SafetyResult:
     normalized = f" {normalize_text(content)} "
     urgent = any(f" {phrase} " in normalized for phrase in URGENT_PHRASES)
     elevated = any(f" {phrase} " in normalized for phrase in ELEVATED_PHRASES)
     level = "urgent" if urgent else "elevated" if elevated else "unassessed"
+    return safety_for_level(level, country_code=country_code)
+
+
+def safety_for_level(level: str, country_code: str = "CO", source: str = "local_safety_rules") -> SafetyResult:
+    """El mensaje de ayuda se escribe en el servidor, nunca lo inventa el modelo."""
     if level == "urgent":
         message = (
             "Lo que escribiste puede indicar una situación de riesgo. "
@@ -67,11 +74,14 @@ def review_safety(content: str) -> SafetyResult:
         )
     else:
         message = (
-            "La revisión local no encontró las expresiones que reconoce. "
+            ("La revisión local no encontró las expresiones que reconoce. "
+             if source == "local_safety_rules"
+             else "El análisis de esta entrada no identificó señales de riesgo reconocibles. ")
+            +
             "Esto no es una evaluación de seguridad ni un diagnóstico. "
             "Puedes buscar ayuda en cualquier momento."
         )
     return SafetyResult(
         risk_level=level, requires_help=level != "unassessed", message=message,
-        resources=help_resources(),
+        resources=help_resources(country_code), source=source,
     )

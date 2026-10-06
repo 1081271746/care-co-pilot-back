@@ -17,6 +17,10 @@ class Settings(BaseModel):
     database_url: SecretStr | None = Field(default=None, repr=False)
     jwt_secret_key: SecretStr | None = Field(default=None, repr=False)
     cors_origins: list[str] = Field(default_factory=list)
+    openai_api_key: SecretStr | None = Field(default=None, repr=False)
+    openai_analysis_enabled: bool = False
+    openai_model: str = Field(default="gpt-5.4-mini", pattern=r"^[A-Za-z0-9._-]{1,100}$")
+    openai_timeout_seconds: float = Field(default=25, ge=1, le=60)
 
     @field_validator("cors_origins")
     @classmethod
@@ -46,6 +50,10 @@ def load_settings() -> Settings:
         app_env=app_env,
         database_url=os.getenv("DATABASE_URL") or None,
         jwt_secret_key=os.getenv("JWT_SECRET_KEY") or None,
+        openai_api_key=os.getenv("OPENAI_API_KEY") or None,
+        openai_analysis_enabled=os.getenv("OPENAI_ANALYSIS_ENABLED", "false"),
+        openai_model=os.getenv("OPENAI_MODEL", "gpt-5.4-mini"),
+        openai_timeout_seconds=os.getenv("OPENAI_TIMEOUT_SECONDS", "25"),
         cors_origins=[
             origin.strip() for origin in os.getenv("CORS_ORIGINS", default_origins).split(",")
             if origin.strip()

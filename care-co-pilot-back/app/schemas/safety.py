@@ -1,6 +1,7 @@
 """Orientación de seguridad; no constituye evaluación clínica."""
 
 from typing import Literal
+from datetime import date
 
 from pydantic import BaseModel
 
@@ -19,12 +20,17 @@ class HelpResource(BaseModel):
     title: str
     url: str | None = None
     description: str
+    phone: str | None = None
+    country_code: str | None = None
+    coverage: str | None = None
+    availability: str | None = None
+    verified_on: date | None = None
 
 
 class SafetyResult(BaseModel):
     risk_level: RiskLevel
     requires_help: bool
-    source: Literal["local_safety_rules"] = "local_safety_rules"
+    source: Literal["local_safety_rules", "openai_safety_signal"] = "local_safety_rules"
     message: str
     resources: list[HelpResource]
     disclaimer: str = DISCLAIMER

@@ -14,3 +14,9 @@ Las señales de ideación suicida, autolesión, crisis grave o peligro inmediato
 **Why:** el usuario señaló la detección de riesgo como crítica; la información emocional es sensible y debe permanecer privada por propietario.
 
 **How to apply:** probar esas expresiones y los accesos entre propietarios, explicar las limitaciones de cualquier detector y no asumir que la ausencia de señales confirma seguridad. Priorizar funcionamiento local y PostgreSQL antes de despliegue. Preferir pwdlib con Argon2 conservando la compatibilidad con hashes anteriores.
+
+El usuario eligió OpenAI con su propia cuenta como proveedor de IA y Colombia como país atendido por la aplicación.
+
+**Why:** decisión explícita del usuario al definir la conexión de IA y la ayuda de emergencia.
+
+**How to apply:** no sustituir por Replit AI Integrations ni otro proveedor sin consultarlo. No interpretar Colombia como una ubicación personal del creador ni de todos los usuarios. Verificar los contactos oficiales y distinguir las líneas nacionales de los canales distritales.
