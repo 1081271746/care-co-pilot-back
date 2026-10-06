@@ -1,6 +1,7 @@
 """Datos públicos de cuentas; nunca incluyen hashes ni contraseñas."""
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field, SecretStr
 
@@ -19,3 +20,9 @@ class AccountResponse(BaseModel):
     id: str
     email: str
     created_at: datetime
+
+
+class CurrentAccountResponse(AccountResponse):
+    """Rol vigente para mostrar navegación, nunca para conceder permisos."""
+
+    role: Literal["user", "admin"]

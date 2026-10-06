@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.core.config import load_settings
+from app.core.config import Settings, load_settings
 from app.core.errors import register_error_handlers
 from app.core.http import configure_http
 from app.routers.auth import router as auth_router
@@ -14,8 +14,9 @@ from app.routers.profile import router as profile_router
 from app.routers.history import router as history_router
 
 
-def create_app() -> FastAPI:
-    settings = load_settings()
+def create_app(settings: Settings | None = None) -> FastAPI:
+    explicit_settings = settings
+    settings = settings or load_settings()
     application = FastAPI(
         title=settings.app_name,
         version="0.1.0",
@@ -24,6 +25,8 @@ def create_app() -> FastAPI:
             "ni servicios de emergencia."
         ),
     )
+    if explicit_settings is not None:
+        application.state.auth_settings = explicit_settings
     register_error_handlers(application)
     configure_http(application, settings)
     application.include_router(auth_router)

@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 
-from app.core.security import AuthenticationConfigurationError, verify_authentication_configuration
+from app.core.security import AuthenticationConfigurationError, get_auth_settings, verify_authentication_configuration
+from app.core.config import Settings
 from app.database import get_db
 from app.models import Base
 
@@ -20,10 +21,13 @@ def get_health() -> HealthResponse:
 
 
 @router.get("/health/ready")
-def get_readiness(db: Annotated[Session, Depends(get_db)]):
+def get_readiness(
+    db: Annotated[Session, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_auth_settings)],
+):
     """Comprueba conexión, columnas migradas y JWT, sin aplicar migraciones."""
     try:
-        verify_authentication_configuration()
+        verify_authentication_configuration(settings)
     except AuthenticationConfigurationError:
         raise HTTPException(status_code=503, detail="La autenticación no está configurada.") from None
     db.execute(text("SELECT 1"))

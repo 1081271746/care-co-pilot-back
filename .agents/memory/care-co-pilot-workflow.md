@@ -18,3 +18,13 @@ No emitir JWT para un identificador de usuario proporcionado sin autenticar. La 
 **Why:** firmar tokens para identidades no verificadas permitiría acceder a datos de otras personas.
 
 **How to apply:** esperar a tener cuentas persistidas para habilitar el inicio de sesión y la emisión de JWT.
+
+Completar primero el backend con datos ficticios. El usuario configurará después
+su PostgreSQL local y la IA por separado; el frontend corresponde a una fase posterior.
+
+**Why:** el usuario pidió terminar el backend sin esperar esas configuraciones
+externas, antes de continuar con el frontend.
+
+**How to apply:** no pedir credenciales ni hacer llamadas reales a OpenAI para
+cerrar esta fase. Usar pruebas y demostraciones aisladas; conservar PostgreSQL
+como base de la aplicación real y no presentar datos ficticios como análisis de IA.

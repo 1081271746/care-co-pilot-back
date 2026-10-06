@@ -21,7 +21,23 @@ class SessionHttpTests(fixture.LoginHttpTests):
             response = self.client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["email"], fixture.TEST_EMAIL)
-        self.assertEqual(set(response.json()), {"id", "email", "created_at"})
+        self.assertEqual(set(response.json()), {"id", "email", "created_at", "role"})
+        self.assertEqual(response.json()["role"], "user")
+
+    def test_current_role_is_read_from_database_even_with_an_existing_token(self):
+        with patch("app.core.security.load_settings", return_value=fixture.TEST_SETTINGS):
+            token = self.login_token()
+            headers = {"Authorization": f"Bearer {token}"}
+            with self.session_factory() as session:
+                session.get(User, 1).role = "admin"
+                session.commit()
+            response = self.client.get("/auth/me", headers=headers)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()["role"], "admin")
+            with self.session_factory() as session:
+                session.get(User, 1).role = "user"
+                session.commit()
+            self.assertEqual(self.client.get("/auth/me", headers=headers).json()["role"], "user")
 
     def test_logout_revokes_only_current_session_and_private_routes(self):
         with patch("app.core.security.load_settings", return_value=fixture.TEST_SETTINGS):

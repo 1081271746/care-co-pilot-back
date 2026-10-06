@@ -20,6 +20,8 @@ from app.services.safety import review_safety
 from app.services.journal_analysis import analyze_and_persist
 from app.services.openai_analysis import get_analysis_provider, OpenAIAnalyzer
 from app.schemas.analysis import PRIVACY_NOTICE_VERSION
+from app.core.config import Settings
+from app.core.security import get_auth_settings
 
 router = APIRouter(prefix="/journal", tags=["Diario emocional"])
 Identity = Annotated[AuthenticatedUser, Depends(get_active_user)]
@@ -96,6 +98,7 @@ def analyze_entry(
     entry_id: int, payload: AnalysisRequest, current: Identity, db: Database,
     provider: Annotated[OpenAIAnalyzer, Depends(get_analysis_provider)],
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(bearer_scheme)],
+    settings: Annotated[Settings, Depends(get_auth_settings)],
 ):
     entry = owned_record(db, JournalEntry, entry_id, int(current.id))
     if entry.risk_level != "unassessed":
@@ -108,6 +111,6 @@ def analyze_entry(
     if payload.privacy_notice_version != PRIVACY_NOTICE_VERSION:
         raise HTTPException(status_code=422, detail="Acepta el aviso de privacidad vigente disponible en GET /help/privacy.")
     def reauthorize():
-        identity = get_current_user(credentials)
+        identity = get_current_user(credentials, settings)
         get_active_user(identity, credentials, db)
     return analyze_and_persist(db, entry, provider, reauthorize)

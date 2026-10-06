@@ -8,12 +8,19 @@ import hmac
 import secrets
 
 import jwt
+from fastapi import Request
 from jwt.exceptions import InvalidTokenError
 from pydantic import SecretStr
 from pwdlib import PasswordHash
 from pwdlib.exceptions import PwdlibError
 
 from app.core.config import Settings, load_settings
+
+
+def get_auth_settings(request: Request) -> Settings:
+    """Configuración por aplicación, sin modificar variables globales."""
+    return getattr(request.app.state, "auth_settings", None) or load_settings()
+
 
 JWT_ALGORITHM = "HS256"
 JWT_ISSUER = "care-co-pilot-back"
@@ -143,9 +150,9 @@ def _signing_key(settings: Settings | None = None) -> str:
     return value
 
 
-def verify_authentication_configuration() -> None:
+def verify_authentication_configuration(settings: Settings | None = None) -> None:
     """Comprueba la configuración sin emitir tokens ni devolver el secreto."""
-    _signing_key()
+    _signing_key(settings)
 
 
 def create_access_token(

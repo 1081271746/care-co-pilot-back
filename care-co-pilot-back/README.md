@@ -90,6 +90,9 @@ o lineal. `intense_sadness` no significa una depresión diagnosticada.
 
 ## API disponible
 
+Guía de consumo para el futuro frontend, incluidos estados sin IA, errores,
+paginación y permisos: [docs/frontend-api.md](docs/frontend-api.md).
+
 Todas las rutas salvo salud, ayuda, registro, login y documentación requieren
 `Authorization: Bearer <token>`.
 
@@ -111,6 +114,8 @@ sesión por separado. JWT caduca a los 30 minutos. Logout devuelve 204 y revoca
 solo el token actual: otras sesiones siguen funcionando. El backend almacena
 únicamente su SHA-256 y expiración, nunca el JWT completo; limpia revocaciones
 vencidas al cerrar sesiones. El frontend deberá borrar su token al recibir 204.
+`GET /auth/me` también devuelve el rol vigente (`user` o `admin`) para la
+navegación del cliente; los permisos siempre se vuelven a validar en el servidor.
 
 Los nombres opcionales, país y objetivo de acompañamiento se guardan con
 `PATCH /profile`. `country_code` acepta dos letras mayúsculas (normaliza minúsculas)
@@ -169,7 +174,58 @@ app/
 tests/          # Pruebas
 ```
 
-## Ejecutar en tu computador
+## Probar ahora con datos ficticios, sin PostgreSQL ni IA
+
+El backend puede probarse de punta a punta antes de configurar tu PostgreSQL local.
+La demostración utiliza **los mismos endpoints, validaciones, contraseñas Argon2,
+JWT y permisos** de la API normal, pero sobre SQLite temporal aislado. No reemplaza
+PostgreSQL ni utiliza `DATABASE_URL`, `JWT_SECRET_KEY` o `OPENAI_API_KEY` del entorno
+para atender sus solicitudes. Aplica las migraciones en su propia base temporal.
+
+Después de instalar las dependencias, desde la raíz del backend:
+
+```powershell
+python -m app.demo
+```
+
+Si el puerto está ocupado: `python -m app.demo --port 8001`.
+El comando escucha **solo en 127.0.0.1**; no admite publicar la demostración.
+Se rechaza si `APP_ENV=production`.
+
+- Swagger: <http://127.0.0.1:8000/docs>.
+- Cuentas ficticias: <http://127.0.0.1:8000/demo/info>.
+- Contraseña pública **solo de demo**: `DemoSoloLocal2026!`.
+- Usuario: `usuario.demo@example.com`.
+- Otro propietario: `otra.demo@example.com`.
+- Administrador: `admin.demo@example.com`.
+
+En Swagger:
+
+1. Ejecuta `POST /auth/login` con una cuenta de ejemplo.
+2. Copia `access_token` y pégalo en **Authorize** (solo el token, sin escribir
+   `Bearer` si Swagger ya lo añade).
+3. Prueba `/auth/me`, `/profile`, `/journal`, `/resources`, `/exercises`,
+   `/progress/exercises`, `/dashboard` y `/history`.
+4. Crea, edita y elimina entradas y finalizaciones. Las nuevas cuentas registradas
+   también son temporales y tienen rol `user`.
+5. Con la cuenta administradora, prueba crear/editar/desactivar/reactivar catálogo.
+   Un administrador no puede leer diarios o notas de otras personas.
+6. Ejecuta logout; el token cerrado deja de funcionar.
+
+Se cargan diarios ficticios de varios días, perfiles, finalizaciones, seis recursos
+y seis ejercicios. Una entrada ficticia contiene una expresión de riesgo para
+comprobar la prioridad de ayuda. **No hay análisis simulado que se presente como IA.**
+Las entradas normales permanecen pendientes y las recomendaciones son generales.
+Solicitar análisis con consentimiento válido devuelve 503, sin llamadas externas
+y sin borrar el texto; las reglas locales de seguridad siguen funcionando.
+
+**Todo se elimina al cerrar el servidor**. Al reiniciarlo se crean nuevamente los
+ejemplos y una clave JWT aleatoria nueva; los tokens anteriores dejan de servir.
+No introduzcas datos personales ni reutilices las credenciales demo en la API real.
+`GET /demo/info` solo existe en esta demostración y sus respuestas incluyen
+`X-CoPilot-Mode: demo-local`.
+
+## Ejecutar en tu computador con PostgreSQL
 
 Usa Python 3.11 o superior. Ejecuta los comandos desde la raíz de este repositorio.
 

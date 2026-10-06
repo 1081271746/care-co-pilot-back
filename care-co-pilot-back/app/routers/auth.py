@@ -18,12 +18,14 @@ from app.core.security import (
     decode_access_claims,
     hash_password,
     verify_password,
+    get_auth_settings,
 )
+from app.core.config import Settings
 from app.database import get_db
 from app.models import User
 from app.models.revoked_token import RevokedToken
 from app.schemas.auth import AuthenticatedUser, LoginRequest, LoginResponse
-from app.schemas.account import AccountResponse, RegisterRequest
+from app.schemas.account import AccountResponse, CurrentAccountResponse, RegisterRequest
 from app.services.accounts import DuplicateEmailError, register_account
 
 router = APIRouter(prefix="/auth", tags=["Autenticación"])
@@ -55,6 +57,7 @@ def register(
 def login(
     credentials: LoginRequest,
     db: Annotated[Session, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_auth_settings)],
 ) -> LoginResponse:
     """Autentica una cuenta persistida y solo entonces emite un JWT."""
     user = db.scalar(
@@ -77,7 +80,7 @@ def login(
         db.commit()
 
     try:
-        access_token = create_access_token(str(user.id))
+        access_token = create_access_token(str(user.id), settings=settings)
     except AuthenticationConfigurationError:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -92,6 +95,7 @@ def get_current_user(
         HTTPAuthorizationCredentials | None,
         Depends(bearer_scheme),
     ],
+    settings: Annotated[Settings | None, Depends(get_auth_settings)] = None,
 ) -> AuthenticatedUser:
     """Identifica al usuario desde un bearer token verificado."""
     if credentials is None or credentials.scheme.lower() != "bearer":
@@ -102,7 +106,7 @@ def get_current_user(
         )
 
     try:
-        user_id = decode_access_token(credentials.credentials)
+        user_id = decode_access_token(credentials.credentials, settings=settings)
     except InvalidAccessTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -141,14 +145,16 @@ def get_active_user(
     return current_user
 
 
-@router.get("/me", response_model=AccountResponse)
+@router.get("/me", response_model=CurrentAccountResponse)
 def read_current_user(
     current_user: Annotated[AuthenticatedUser, Depends(get_active_user)],
     db: Annotated[Session, Depends(get_db)],
-) -> AccountResponse:
+) -> CurrentAccountResponse:
     """Devuelve solo los datos públicos de la cuenta persistida actual."""
     user = db.get(User, int(current_user.id))
-    return AccountResponse(id=str(user.id), email=user.email, created_at=user.created_at)
+    return CurrentAccountResponse(
+        id=str(user.id), email=user.email, created_at=user.created_at, role=user.role,
+    )
 
 
 @router.post("/logout", status_code=204)
@@ -156,9 +162,10 @@ def logout(
     current_user: Annotated[AuthenticatedUser, Depends(get_active_user)],
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(bearer_scheme)],
     db: Annotated[Session, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_auth_settings)],
 ) -> Response:
     """Revoca el JWT actual; otras sesiones del usuario siguen funcionando."""
-    claims = decode_access_claims(credentials.credentials)
+    claims = decode_access_claims(credentials.credentials, settings=settings)
     digest = hashlib.sha256(credentials.credentials.encode()).hexdigest()
     db.execute(delete(RevokedToken).where(RevokedToken.expires_at <= datetime.now(timezone.utc)))
     db.add(RevokedToken(
