@@ -52,6 +52,20 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(settings.app_name, "Backend de prueba")
         self.assertEqual(settings.app_env, "test")
 
+    def test_reads_database_url_as_a_secret(self):
+        database_url = "postgresql://user:password@localhost:5432/test_db"
+        with patch.dict(os.environ, {"DATABASE_URL": database_url}, clear=True):
+            settings = load_settings()
+
+        self.assertEqual(settings.database_url.get_secret_value(), database_url)
+        self.assertNotIn("password", repr(settings))
+
+    def test_empty_database_url_is_not_configured(self):
+        with patch.dict(os.environ, {"DATABASE_URL": ""}, clear=True):
+            settings = load_settings()
+
+        self.assertIsNone(settings.database_url)
+
     def test_rejects_unknown_environment(self):
         with patch.dict(os.environ, {"APP_ENV": "desconocido"}):
             with self.assertRaises(ValidationError):

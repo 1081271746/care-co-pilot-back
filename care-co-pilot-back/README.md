@@ -1,25 +1,27 @@
 # Co-Piloto de Duelo — Backend
 
-Base inicial del proyecto universitario con Python, FastAPI y Pydantic.
+Base del proyecto universitario con Python, FastAPI, Pydantic y PostgreSQL.
 La aplicación es de acompañamiento: no realiza diagnósticos ni sustituye
 atención profesional o servicios de emergencia.
 
 ## Alcance actual
 
-- Configuración mediante `APP_NAME` y `APP_ENV`.
+- Configuración mediante `APP_NAME`, `APP_ENV` y `DATABASE_URL`.
+- Motor SQLAlchemy y sesiones PostgreSQL creados bajo demanda.
+- Comprobación manual de la base mediante `SELECT 1`, sin crear tablas.
 - `GET /health`: respuesta `{"status":"ok"}` para comprobar que la API responde.
 - Documentación automática en `/docs` y contrato OpenAPI en `/openapi.json`.
-- Pruebas de configuración y HTTP con `unittest`, incluido en Python.
+- Pruebas de configuración, conexión y HTTP con `unittest`.
 
-Todavía no hay conexión a PostgreSQL, modelos de datos, autenticación ni IA.
-El endpoint de salud no comprueba la base de datos.
+Esta etapa no crea tablas ni incorpora autenticación JWT o IA. El endpoint
+`/health` confirma únicamente que la API responde; no comprueba PostgreSQL.
 
 ## Estructura
 
 ```text
 app/
 ├── core/        # Configuración; seguridad en etapas posteriores
-├── database/    # Conexión a PostgreSQL en la siguiente etapa
+├── database/    # Motor, sesiones y comprobación de PostgreSQL
 ├── models/      # Modelos SQLAlchemy futuros
 ├── routers/     # Endpoints
 ├── schemas/     # Validación y respuestas Pydantic
@@ -51,11 +53,20 @@ python -m pip install -r requirements.txt
 Copy-Item .env.example .env
 ```
 
-Los valores del ejemplo no contienen credenciales. `APP_ENV` admite
-`development`, `test` o `production`. Las variables del entorno tienen prioridad
-sobre `.env`; un valor inválido impide iniciar la API.
+`APP_ENV` admite `development`, `test` o `production`. `DATABASE_URL` es
+opcional para iniciar la API; configúrala para usar PostgreSQL. Las variables
+del entorno tienen prioridad sobre `.env`; un valor inválido impide iniciar la
+API.
 
-No subas `.env` a GitHub. No se requieren credenciales de PostgreSQL en esta etapa.
+La URL suele tener el formato
+`postgresql+psycopg://USUARIO:CONTRASEÑA@HOST:5432/BASE`. Replit puede
+proporcionar `DATABASE_URL` al habilitar su PostgreSQL. No escribas credenciales
+en el repositorio ni subas `.env`; `.env.example` deja la URL vacía.
+
+El controlador instalado es `psycopg` 3 (distribución `psycopg[binary]`).
+SQLAlchemy no incluye un controlador PostgreSQL y, sin indicarlo, suele intentar
+usar `psycopg2`. Esta configuración convierte las URL `postgresql://` al
+controlador `postgresql+psycopg` de forma explícita.
 
 ### 4. Iniciar FastAPI
 
@@ -73,4 +84,12 @@ python -m unittest discover -s tests -v
 ```
 
 Las pruebas HTTP inician y detienen su propio servidor Uvicorn en un puerto libre.
-No requieren que ejecutes la API manualmente ni utilizan una base de datos.
+No requieren que ejecutes la API manualmente ni una base PostgreSQL. Para probar
+la conexión real desde el backend, con `DATABASE_URL` configurada, ejecuta:
+
+```powershell
+python -c "from app.database import verify_database_connection; verify_database_connection()"
+```
+
+La comprobación abre una conexión y ejecuta `SELECT 1`; si falla, informa un
+error sin mostrar la URL ni los detalles de autenticación.

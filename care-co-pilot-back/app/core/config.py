@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Literal
 
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
@@ -13,6 +13,7 @@ BACKEND_ROOT = Path(__file__).resolve().parents[2]
 class Settings(BaseModel):
     app_name: str = Field(default="Co-Piloto de Duelo", min_length=1)
     app_env: Literal["development", "test", "production"] = "development"
+    database_url: SecretStr | None = Field(default=None, repr=False)
 
 
 def load_settings() -> Settings:
@@ -21,4 +22,5 @@ def load_settings() -> Settings:
     return Settings(
         app_name=os.getenv("APP_NAME", "Co-Piloto de Duelo"),
         app_env=os.getenv("APP_ENV", "development"),
+        database_url=os.getenv("DATABASE_URL") or None,
     )
