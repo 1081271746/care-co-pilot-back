@@ -1,7 +1,31 @@
 """Esquemas públicos de identidad autenticada."""
 
-from pydantic import BaseModel, Field
+from typing import Literal
+
+from pydantic import BaseModel, Field, SecretStr, field_validator
 
 
 class AuthenticatedUser(BaseModel):
     id: str = Field(min_length=1, max_length=128)
+
+
+class LoginRequest(BaseModel):
+    """Credenciales enviadas al inicio de sesión."""
+
+    email: str = Field(min_length=1, max_length=320)
+    password: SecretStr = Field(min_length=1, max_length=1024)
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        normalized = value.strip().casefold()
+        if not normalized:
+            raise ValueError("El correo electrónico no puede estar vacío.")
+        return normalized
+
+
+class LoginResponse(BaseModel):
+    """Token de acceso emitido después de comprobar las credenciales."""
+
+    access_token: str
+    token_type: Literal["bearer"] = "bearer"

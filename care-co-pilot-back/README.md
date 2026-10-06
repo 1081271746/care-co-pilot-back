@@ -11,21 +11,23 @@ atención profesional o servicios de emergencia.
 - Comprobación manual de la base mediante `SELECT 1`, sin crear tablas.
 - Modelo mínimo de cuenta: correo único, hash de contraseña y fecha de creación.
 - Migraciones Alembic explícitas; la API no crea ni modifica tablas al iniciar.
+- `POST /auth/login`: verifica las credenciales contra una cuenta persistida y
+  devuelve un JWT únicamente cuando ambas son válidas.
 - Validación de tokens de acceso JWT firmados con HS256 y una clave del entorno.
 - `GET /auth/me`: devuelve la identidad solo cuando el bearer token es válido.
 - Comprobación reutilizable de propiedad de registros que responde 404 para
   registros ajenos.
 - `GET /health`: respuesta `{"status":"ok"}` para comprobar que la API responde.
 - Documentación automática en `/docs` y contrato OpenAPI en `/openapi.json`.
-- Pruebas de configuración, conexión y HTTP con `unittest`.
+- Pruebas de configuración, conexión y HTTP con `unittest`, incluido el login sobre
+  una base SQLite temporal.
 
-Esta etapa crea únicamente la tabla de cuentas; aún no ofrece un endpoint de inicio
-de sesión ni de datos personales. Emitir tokens sin comprobar credenciales contra
-cuentas persistidas permitiría suplantar usuarios. El código que autentique una
-cuenta debe llamar a `create_access_token` solo después de verificarla.
-Las rutas de datos deben exigir `get_current_user` y comprobar la propiedad antes
-de devolver, modificar o eliminar registros. El endpoint `/health` confirma
-únicamente que la API responde; no comprueba PostgreSQL.
+El inicio de sesión responde con el mismo error genérico si el correo no existe o
+la contraseña no coincide. Las contraseñas se almacenan mediante PBKDF2-HMAC-SHA256
+con una sal aleatoria; nunca se guardan en texto plano. Las rutas de datos deben
+exigir `get_current_user` y comprobar la propiedad antes de devolver, modificar o
+eliminar registros. El endpoint `/health` confirma únicamente que la API responde;
+no comprueba PostgreSQL.
 
 ## Estructura
 

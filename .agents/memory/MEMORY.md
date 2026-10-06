@@ -1,3 +1,4 @@
 - [Forma de trabajo de Co-Piloto de Duelo](care-co-pilot-workflow.md) — limitar cambios al backend/frontend, validar por etapas y emitir JWT solo tras autenticar cuentas persistidas.
 - [Alcance Git de los clones](nested-repository-git.md) — verificar la raíz antes de commits; sin metadata anidada, Git puede operar sobre el repositorio contenedor.
 - [Verificar cuentas de GitHub](github-account-verification.md) — distinguir el nombre visible del login antes de declarar que una URL pertenece a otra cuenta.
+- [Tooling Python en el monorepo](python-tooling.md) — revisar efectos secundarios del instalador Replit y usar `httpx2` para pruebas con Starlette reciente.
