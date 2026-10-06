@@ -99,6 +99,7 @@ Todas las rutas salvo salud, ayuda, registro, login y documentación requieren
 | Diario | `POST/GET /journal`, `GET/PATCH/DELETE /journal/{id}` |
 | Análisis y acompañamiento | `POST /journal/{id}/analyze`, `GET /journal/{id}/recommendations` |
 | Biblioteca | `GET /resources`, `GET /resources/{id}`, `GET /exercises`, `GET /exercises/{id}` |
+| Administración del catálogo | `GET/POST /admin/resources`, `GET/PATCH/DELETE /admin/resources/{id}`, y las mismas rutas para `/admin/exercises` |
 | Ejercicios realizados | `POST /exercises/{id}/completions`, `GET /progress/exercises`, `GET/PATCH/DELETE /progress/exercises/{id}` |
 | Preferencias | `GET/PATCH/DELETE /profile` |
 | Resúmenes | `GET /dashboard`, `GET /history?days=30` |
@@ -322,6 +323,79 @@ La integración verifica CRUD de ambos propietarios, rechazo de cambios de dueñ
 JWT inválidos, 404 idénticos para registros ajenos/inexistentes, restricciones
 de claves foráneas (inserción y actualización), borrado en cascada limitado al
 propietario eliminado y downgrade/upgrade conservando las cuentas.
+También ejecuta las pruebas administrativas y de roles: registro sin privilegios,
+promoción/retiro local, JWT vencidos o revocados, cuenta inactiva, claims de rol
+ignorados, validación de contenido, conflictos de slug, paginación, preservación
+de historial y denegación de diarios/notas ajenas aun para administradores.
+La migración de roles se comprueba con cuentas previas, restricciones y reversión
+tanto en SQLite como en PostgreSQL.
+
+## Roles y operación local autorizada
+
+Aplica `python -m alembic upgrade head` antes de usar roles. La migración agrega
+`role` con valor `user` a todas las cuentas existentes y nuevas; la base solo
+admite `user` y `admin`. El registro público rechaza `role`, `is_admin` y otros
+campos desconocidos. No hay endpoint de promoción.
+
+Solo un operador autorizado con acceso al servidor y a su configuración de
+PostgreSQL debe ejecutar, desde la raíz del backend:
+
+```sh
+python -m app.services.account_roles --account-id 123 --role admin --confirm-local-role-change
+```
+
+El identificador corresponde a una cuenta activa previamente registrada. Para
+retirar permisos, usar el mismo comando con `--role user`. La confirmación evita
+ejecuciones accidentales: **no sustituye la autorización del operador**. Restringe
+el acceso al sistema operativo, despliegue y configuración de DB; no publiques
+este comando como servicio ni compartas sus permisos con usuarios de la API.
+El rol se consulta en DB en cada petición, no se confía en claims de rol del JWT.
+No concede acceso a diarios, registros ni notas de ejercicios de otras cuentas.
+
+### Administrar recursos y ejercicios
+
+Estas rutas requieren JWT vigente, cuenta activa y rol `admin`; sin autenticación
+devuelven 401, con rol normal 403. El contenido público mantiene sus rutas actuales
+y muestra únicamente elementos activos, incluso para administradores.
+
+Ejemplo de cuerpo para `POST /admin/resources`:
+
+```json
+{
+  "slug": "comprender-el-duelo",
+  "title": "Comprender el duelo",
+  "description": "Orientación educativa, no diagnóstica.",
+  "kind": "educational",
+  "stage": "general",
+  "content": "Cada proceso es diferente; las etapas no son obligatorias ni lineales."
+}
+```
+
+Para `POST /admin/exercises`, omite `kind` y `content`, y añade `instructions`
+(lista de 1–30 pasos de texto no vacío, máximo 2000 caracteres cada uno).
+Ambos aceptan `is_active` como booleano estricto, por defecto `true`. Las etapas
+permitidas son `general`, `denial`, `anger`, `bargaining`, `intense_sadness` y
+`acceptance`. Los slugs son únicos por tipo (también entre inactivos), de 1–100
+caracteres, letras minúsculas ASCII/números separados por guiones. Título:
+1–200; descripción: 1–5000; contenido: 1–20000; tipo: 1–30 caracteres.
+Los textos se recortan y no pueden quedar vacíos; se rechazan campos desconocidos.
+
+`PATCH` acepta uno o más campos de creación. Rechaza cuerpos vacíos y valores
+null; no modifica `id`, propietarios ni historial. Slug duplicado devuelve 409;
+identificador inexistente 404; datos inválidos 422.
+
+`DELETE` **desactiva**, no borra la fila, y devuelve 204 (también si ya estaba
+inactiva). `PATCH {"is_active": true}` permite reactivarla. La desactivación
+impide lecturas públicas, nuevas finalizaciones y recomendaciones normales,
+pero mantiene finalizaciones anteriores y sus notas privadas por propietario.
+Editar un ejercicio actualiza el catálogo actual, no es una versión histórica
+del contenido; el identificador referenciado y las notas anteriores no cambian.
+
+Las listas administrativas incluyen activos e inactivos; aceptan `is_active=true`
+o `false`, `stage`, `limit` (1–100) y `before_id` positivo. Devuelven `items`,
+`has_more`, `next_cursor` y `limit`, ordenados por id descendente. Las respuestas
+administrativas incluyen `slug` e `is_active`, nunca cuentas ni notas privadas.
+La carga inicial idempotente no sobreescribe cambios ni reactiva elementos.
 
 ## Aplicar o revertir el esquema
 

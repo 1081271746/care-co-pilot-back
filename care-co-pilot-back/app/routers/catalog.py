@@ -23,8 +23,10 @@ PageLimit = Annotated[int, Query(ge=1, le=100)]
 Cursor = Annotated[int | None, Query(ge=1)]
 
 
-def catalog_page(db, model, response_model, limit, before_id, stage):
-    statement = select(model).where(model.is_active.is_(True))
+def catalog_page(db, model, response_model, limit, before_id, stage, is_active=True):
+    statement = select(model)
+    if is_active is not None:
+        statement = statement.where(model.is_active.is_(is_active))
     if stage:
         statement = statement.where(model.stage == stage)
     if before_id:

@@ -9,6 +9,7 @@ from app.routers.private_records import router as private_records_router
 from app.routers.journal import router as journal_router
 from app.routers.help import router as help_router
 from app.routers.catalog import router as catalog_router
+from app.routers.catalog_admin import router as catalog_admin_router
 from app.routers.profile import router as profile_router
 from app.routers.history import router as history_router
 
@@ -30,6 +31,7 @@ def create_app() -> FastAPI:
     application.include_router(journal_router)
     application.include_router(help_router)
     application.include_router(catalog_router)
+    application.include_router(catalog_admin_router)
     application.include_router(profile_router)
     application.include_router(history_router)
     application.include_router(health_router)

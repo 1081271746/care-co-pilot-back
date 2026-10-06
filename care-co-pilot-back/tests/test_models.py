@@ -9,7 +9,7 @@ from app.models import Base, User
 
 
 class UserModelTests(unittest.TestCase):
-    def test_user_maps_only_the_initial_account_fields(self):
+    def test_user_maps_account_fields_and_role(self):
         configure_mappers()
         mapper = inspect(User)
 
@@ -17,7 +17,7 @@ class UserModelTests(unittest.TestCase):
         self.assertEqual(User.__tablename__, "users")
         self.assertEqual(
             set(mapper.columns.keys()),
-            {"id", "email", "password_hash", "created_at", "is_active"},
+            {"id", "email", "password_hash", "created_at", "is_active", "role"},
         )
         self.assertIsInstance(User.__table__.c.id.type, Integer)
         self.assertIsInstance(User.__table__.c.email.type, String)
@@ -26,6 +26,9 @@ class UserModelTests(unittest.TestCase):
         self.assertEqual(User.__table__.c.password_hash.type.length, 255)
         self.assertIsInstance(User.__table__.c.created_at.type, DateTime)
         self.assertTrue(User.__table__.c.created_at.type.timezone)
+        self.assertFalse(User.__table__.c.role.nullable)
+        self.assertEqual(User.__table__.c.role.default.arg, "user")
+        self.assertEqual(User.__table__.c.role.server_default.arg, "user")
 
     def test_email_is_required_and_unique_and_created_at_has_a_server_default(self):
         email = User.__table__.c.email
